@@ -42,6 +42,8 @@
             this.medianFilterToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.thresholdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.grayscalingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -103,7 +105,9 @@
             // filteringToolStripMenuItem
             // 
             this.filteringToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.medianFilterToolStripMenuItem});
+            this.medianFilterToolStripMenuItem,
+            this.thresholdingToolStripMenuItem,
+            this.grayscalingToolStripMenuItem});
             this.filteringToolStripMenuItem.Name = "filteringToolStripMenuItem";
             this.filteringToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.filteringToolStripMenuItem.Text = "Filtering";
@@ -162,6 +166,20 @@
             this.label1.TabIndex = 4;
             this.label1.Text = "Threshold";
             // 
+            // thresholdingToolStripMenuItem
+            // 
+            this.thresholdingToolStripMenuItem.Name = "thresholdingToolStripMenuItem";
+            this.thresholdingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.thresholdingToolStripMenuItem.Text = "Thresholding";
+            this.thresholdingToolStripMenuItem.Click += new System.EventHandler(this.thresholdingToolStripMenuItem_Click);
+            // 
+            // grayscalingToolStripMenuItem
+            // 
+            this.grayscalingToolStripMenuItem.Name = "grayscalingToolStripMenuItem";
+            this.grayscalingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.grayscalingToolStripMenuItem.Text = "Grayscaling";
+            this.grayscalingToolStripMenuItem.Click += new System.EventHandler(this.grayscalingToolStripMenuItem_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -172,7 +190,9 @@
             this.Controls.Add(this.resPicBox);
             this.Controls.Add(this.srcPicBox);
             this.Controls.Add(this.menuStrip1);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MainMenuStrip = this.menuStrip1;
+            this.MaximizeBox = false;
             this.Name = "Form1";
             this.Text = "Image Segmentation";
             this.Load += new System.EventHandler(this.Form1_Load);
@@ -201,6 +221,8 @@
         private System.Windows.Forms.ToolStripMenuItem medianFilterToolStripMenuItem;
         private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.ToolStripMenuItem thresholdingToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem grayscalingToolStripMenuItem;
     }
 }
 

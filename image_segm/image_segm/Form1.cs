@@ -214,7 +214,7 @@ namespace image_segm
                     threshold = t;
                 }
             }
-            return threshold;
+            return threshold/2;
         }
 
 
@@ -225,13 +225,12 @@ namespace image_segm
             if (level == 1)
             {
                 CvInvoke.MedianBlur(img, img, 5);
-                CvInvoke.CvtColor(img, img, ColorConversion.Bgr2Gray);
-
             }
             else if(level == 2)
             {
                 CvInvoke.MedianBlur(img, img, 5);
             }
+
             System.Console.WriteLine("Filtering done");
 
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
@@ -239,6 +238,8 @@ namespace image_segm
 
             cannyThreshold = getOtsuThreshold(grayimage);
             textBox1.Text = cannyThreshold.ToString();
+
+
             System.Console.WriteLine("Canny threshold using OTSU found " + cannyThreshold.ToString());
 
             //Convert the image to grayscale and filter out the noise
@@ -318,19 +319,19 @@ namespace image_segm
             Image<Bgr, Byte> Image = img.CopyBlank();
             foreach (Triangle2DF triangle in triangleList)
             {
-                Image.Draw(triangle, new Bgr(Color.Red), 2);
+                Image.Draw(triangle, new Bgr(Color.Red), 3);
                 points.Add(triangle.Centeroid);
             }
                 
             foreach (RotatedRect box in boxList)
             {
-                Image.Draw(box, new Bgr(Color.Blue), 2);
+                Image.Draw(box, new Bgr(Color.Blue), 3);
                 points.Add(box.Center);
             }
                 
             foreach (CircleF circle in circles)
             {
-                Image.Draw(circle, new Bgr(Color.Green), 2);
+                Image.Draw(circle, new Bgr(Color.DarkCyan), 3);
                 points.Add(circle.Center);
             }
 
@@ -398,6 +399,37 @@ namespace image_segm
         }
 
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            CvInvoke.MedianBlur(img, img, 5);
+            resPicBox.Image = img.ToBitmap();
+        }
+
+        private void thresholdingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Bitmap bm = (Bitmap)srcPicBox.Image;
+            Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
+            double cannyThreshold = getOtsuThreshold(grayimage);
+            Bitmap res = new Bitmap(bm.Width, bm.Height);
+            textBox1.Text = cannyThreshold.ToString();
+            for (int i = 0; i<grayimage.Height; i++)
+            {
+                for (int j = 0; j<grayimage.Width; j++)
+                {
+                    if (grayimage[i, j].Intensity > cannyThreshold)
+                    {
+                        res.SetPixel(j, i, Color.White);
+                    }
+                    else
+                    {
+                        res.SetPixel(j, i, Color.Black);
+                    }
+                }
+            }
+            resPicBox.Image = res;
+        }
+
+        private void grayscalingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
             UMat uimage = new UMat();
