@@ -39,8 +39,9 @@ namespace image_segm
 
         Bitmap InitialImage;
         bool loaded = false;
-
-        private void filterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 3000, double threshold = 10)
+        
+        
+        private void filterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 7000, double threshold = 10)
         {
             List<RotatedRect> deleted = new List<RotatedRect>();
 
@@ -162,13 +163,70 @@ namespace image_segm
         }
 
 
-        private void process(Bitmap bm, int level, double cannyThreshold = 100.0, double circleAccumulatorThreshold = 90.0, double cannyThresholdLinking = 120.0)
+        private double getOtsuThreshold(Image<Gray, byte> image)
         {
+            int N = image.Width * image.Height;
+            double threshold = 0;
+            int[] hist = new int[256];
+            for (int i = 0; i < hist.Length; i++)
+            {
+                hist[i] = 0;
+            }
+
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    int val = (int)image[j, i].Intensity;
+                    hist[val] += 1;
+                }
+            }
+
+            int sum = 0;
+            for (int t = 0; t < 256; t++) sum += t * hist[t];
+
+            float sumB = 0;
+            int wB = 0;
+            int wF = 0;
+
+            float varMax = 0;
+            threshold = 0;
+
+            for (int t = 0; t < 256; t++)
+            {
+                wB += hist[t];               // Weight Background
+                if (wB == 0) continue;
+
+                wF = N - wB;                 // Weight Foreground
+                if (wF == 0) break;
+
+                sumB += (float)(t * hist[t]);
+
+                float mB = sumB / wB;            // Mean Background
+                float mF = (sum - sumB) / wF;    // Mean Foreground
+
+                float varBetween = wB * wF * (mB - mF) * (mB - mF);
+
+                // Check if new maximum found
+                if (varBetween > varMax)
+                {
+                    varMax = varBetween;
+                    threshold = t;
+                }
+            }
+            return threshold;
+        }
+
+
+        private void process(Bitmap bm, int level, double circleAccumulatorThreshold = 90.0)
+        {
+            double cannyThreshold = 0;
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
             if (level == 1)
             {
                 CvInvoke.MedianBlur(img, img, 5);
-                //resPicBox.Image = img.ToBitmap();
+                CvInvoke.CvtColor(img, img, ColorConversion.Bgr2Gray);
+
             }
             else if(level == 2)
             {
@@ -176,16 +234,23 @@ namespace image_segm
             }
             System.Console.WriteLine("Filtering done");
 
+            Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
+            CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
+
+            cannyThreshold = getOtsuThreshold(grayimage);
+            textBox1.Text = cannyThreshold.ToString();
+            System.Console.WriteLine("Canny threshold using OTSU found " + cannyThreshold.ToString());
+
             //Convert the image to grayscale and filter out the noise
             UMat uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
 
-            
-            
+
+
             CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1);
             
             UMat cannyEdges = new UMat();
-            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
+            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
 
             LineSegment2D[] lines = CvInvoke.HoughLinesP(
                cannyEdges,
@@ -253,19 +318,19 @@ namespace image_segm
             Image<Bgr, Byte> Image = img.CopyBlank();
             foreach (Triangle2DF triangle in triangleList)
             {
-                Image.Draw(triangle, new Bgr(Color.DarkBlue), 2);
+                Image.Draw(triangle, new Bgr(Color.Red), 2);
                 points.Add(triangle.Centeroid);
             }
                 
             foreach (RotatedRect box in boxList)
             {
-                Image.Draw(box, new Bgr(Color.DarkOrange), 2);
+                Image.Draw(box, new Bgr(Color.Blue), 2);
                 points.Add(box.Center);
             }
                 
             foreach (CircleF circle in circles)
             {
-                Image.Draw(circle, new Bgr(Color.Brown), 2);
+                Image.Draw(circle, new Bgr(Color.Green), 2);
                 points.Add(circle.Center);
             }
 
@@ -335,8 +400,9 @@ namespace image_segm
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
-            CvInvoke.MedianBlur(img, img, 25);
-            resPicBox.Image = img.ToBitmap();
+            UMat uimage = new UMat();
+            CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
+            resPicBox.Image = uimage.Bitmap;
         }
     }
 }
