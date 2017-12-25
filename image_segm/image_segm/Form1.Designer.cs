@@ -144,7 +144,7 @@
             this.Controls.Add(this.menuStrip1);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "Image Segmentation";
             this.Load += new System.EventHandler(this.Form1_Load);
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).EndInit();
