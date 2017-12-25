@@ -39,6 +39,7 @@
             this.processSimpleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.processMediumToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.processManiacToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.medianFilterToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -99,6 +100,8 @@
             // 
             // filteringToolStripMenuItem
             // 
+            this.filteringToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.medianFilterToolStripMenuItem});
             this.filteringToolStripMenuItem.Name = "filteringToolStripMenuItem";
             this.filteringToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.filteringToolStripMenuItem.Text = "Filtering";
@@ -134,6 +137,13 @@
             this.processManiacToolStripMenuItem.Text = "Process maniac";
             this.processManiacToolStripMenuItem.Click += new System.EventHandler(this.processManiacToolStripMenuItem_Click);
             // 
+            // medianFilterToolStripMenuItem
+            // 
+            this.medianFilterToolStripMenuItem.Name = "medianFilterToolStripMenuItem";
+            this.medianFilterToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.medianFilterToolStripMenuItem.Text = "Median Filter";
+            this.medianFilterToolStripMenuItem.Click += new System.EventHandler(this.medianFilterToolStripMenuItem_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -168,6 +178,7 @@
         private System.Windows.Forms.ToolStripMenuItem processSimpleToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem processMediumToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem processManiacToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem medianFilterToolStripMenuItem;
     }
 }
 

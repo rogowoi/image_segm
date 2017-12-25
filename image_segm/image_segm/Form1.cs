@@ -40,19 +40,150 @@ namespace image_segm
         Bitmap InitialImage;
         bool loaded = false;
 
+        private void filterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 3000, double threshold = 10)
+        {
+            List<RotatedRect> deleted = new List<RotatedRect>();
 
-        private void process(Bitmap bm, int level, double cannyThreshold = 100.0, double circleAccumulatorThreshold = 100, double cannyThresholdLinking = 120.0)
+            for (int i = 0; i < boxList.Count; i++)
+            {
+                RotatedRect box = boxList[i];
+                for (int j = 0; j < circles.Length; j++)
+                {
+                    CircleF circle = circles[j];
+                    if (Math.Abs(box.Center.X - circle.Center.X) < threshold && Math.Abs(box.Center.Y - circle.Center.Y) < threshold)
+                    {
+                        deleted.Add(box);
+                    }
+                }
+            }
+
+            for (int i = 0; i < deleted.Count; i++)
+            {
+                if (boxList.Contains(deleted[i]))
+                {
+                    boxList.Remove(deleted[i]);
+                }
+            }
+            deleted.Clear();
+            for (int i = 0; i < boxList.Count; i++)
+            {
+                RotatedRect box1 = boxList[i];
+                for (int j = i + 1; j < boxList.Count; j++)
+                {
+                    RotatedRect box2 = boxList[j];
+                    if (Math.Abs(boxArea(box1) - boxArea(box2)) < areaDiff && Math.Abs(box1.Center.X - box2.Center.X) < threshold && Math.Abs(box1.Center.Y - box2.Center.Y) < threshold)
+                    {
+                        deleted.Add(box2);
+                    }
+                }
+            }
+
+            for (int i = 0; i < deleted.Count; i++)
+            {
+                if (boxList.Contains(deleted[i]))
+                {
+                    boxList.Remove(deleted[i]);
+                }
+            }
+            deleted.Clear();
+
+            List<Triangle2DF> deletedTri = new List<Triangle2DF>();
+
+            for (int i = 0; i < triangleList.Count; i++)
+            {
+                Triangle2DF tri1 = triangleList[i];
+                for (int j = i + 1; j < triangleList.Count; j++)
+                {
+                    Triangle2DF tri2 = triangleList[j];
+                    if (Math.Abs(tri1.Centeroid.X - tri2.Centeroid.X) < threshold && Math.Abs(tri1.Centeroid.Y - tri2.Centeroid.Y) < threshold)
+                    {
+                        deletedTri.Add(tri1);
+                    }
+                }
+            }
+
+            for (int i = 0; i < deletedTri.Count; i++)
+            {
+                if (triangleList.Contains(deletedTri[i]))
+                {
+                    triangleList.Remove(deletedTri[i]);
+                }
+            }
+            deletedTri.Clear();
+
+            foreach (RotatedRect box in boxList)
+            {
+                if (Math.Abs(boxArea(box) - imageSize) < areaDiff)
+                {
+                    deleted.Add(box);
+                }
+            }
+            for (int i = 0; i < deleted.Count; i++)
+            {
+                if (boxList.Contains(deleted[i]))
+                {
+                    boxList.Remove(deleted[i]);
+                }
+            }
+            deleted.Clear();
+        }
+
+        private PointF[] sortPoints(List<PointF> points)
+        {
+            points.Sort((a, b) => a.X.CompareTo(b.X));
+            PointF[] listPoints = new PointF[points.Count];
+            listPoints[0] = points[0];
+            int posCount = 0;
+            double minDist = 1000000;
+            bool[] visited = new bool[points.Count];
+            for (int i = 0; i < visited.Length; i++)
+            {
+                visited[i] = false;
+            }
+            visited[0] = true;
+
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+                posCount++;
+                int nxtPointIndex = i + 1;
+                for (int j = i + 1; j < points.Count; j++)
+                {
+                    if (getDistance(points[i], points[j]) < minDist && !visited[j])
+                    {
+                        nxtPointIndex = j;
+                        minDist = getDistance(points[i], points[j]);
+                    }
+                }
+                listPoints[posCount] = points[nxtPointIndex];
+                visited[nxtPointIndex] = true;
+
+            }
+            return listPoints;
+        }
+
+
+        private void process(Bitmap bm, int level, double cannyThreshold = 100.0, double circleAccumulatorThreshold = 90.0, double cannyThresholdLinking = 120.0)
         {
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
-            
+            if (level == 1)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+                //resPicBox.Image = img.ToBitmap();
+            }
+            else if(level == 2)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+            }
+            System.Console.WriteLine("Filtering done");
+
             //Convert the image to grayscale and filter out the noise
             UMat uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
 
             
             
-            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 3.0, cannyThreshold, circleAccumulatorThreshold, 1);
-
+            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1);
+            
             UMat cannyEdges = new UMat();
             CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
 
@@ -63,6 +194,7 @@ namespace image_segm
                20, //threshold
                30, //min Line width
                10); //gap between lines
+            System.Console.WriteLine("Lines detected");
 
             List<Triangle2DF> triangleList = new List<Triangle2DF>();
             List<RotatedRect> boxList = new List<RotatedRect>();
@@ -77,7 +209,7 @@ namespace image_segm
                     using (VectorOfPoint approxContour = new VectorOfPoint())
                     {
                         CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
-                        if (CvInvoke.ContourArea(approxContour, false) > 20)
+                        if (CvInvoke.ContourArea(approxContour, false) > 10)
                         {
                             if (approxContour.Size == 3)
                             {
@@ -98,7 +230,7 @@ namespace image_segm
                                 {
                                     double angle = Math.Abs(
                                        edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
-                                    if (angle < 85 || angle > 95)
+                                    if (angle < 80 || angle > 100)
                                     {
                                         isRectangle = false;
                                         break;
@@ -110,91 +242,11 @@ namespace image_segm
                     }
                 }
             }
-            List<RotatedRect> deleted = new List<RotatedRect>();
-
-            for (int i = 0; i < boxList.Count; i++)
-            {
-                RotatedRect box = boxList[i];
-                for (int j = 0; j < circles.Length; j++)
-                {
-                    CircleF circle = circles[j];
-                    if(Math.Abs(box.Center.X - circle.Center.X) < 10 && Math.Abs(box.Center.Y - circle.Center.Y) < 10)
-                    {
-                        deleted.Add(box);
-                    }
-                }
-            }
             
-            for (int i = 0; i<deleted.Count; i++)
-            {
-                if (boxList.Contains(deleted[i]))
-                {
-                    boxList.Remove(deleted[i]);
-                }
-            }
-            deleted.Clear();
-            for (int i = 0; i < boxList.Count; i++)
-            {
-                RotatedRect box1 = boxList[i];
-                for (int j = i + 1; j < boxList.Count; j++)
-                {
-                    RotatedRect box2 = boxList[j];
-                    if (Math.Abs(boxArea(box1) - boxArea(box2)) < 3000 && Math.Abs(box1.Center.X - box2.Center.X) < 10 && Math.Abs(box1.Center.Y - box2.Center.Y) < 10 )
-                    {
-                        deleted.Add(box2);
-                    }
-                }
-            }
+            System.Console.WriteLine("Boxes found " + boxList.Count.ToString());
+            System.Console.WriteLine("Triangles found " + triangleList.Count.ToString());
 
-            for (int i = 0; i < deleted.Count; i++)
-            {
-                if (boxList.Contains(deleted[i]))
-                {
-                    boxList.Remove(deleted[i]);
-                }
-            }
-            deleted.Clear();
-            List<Triangle2DF> deletedTri = new List<Triangle2DF>();
-
-            for (int i = 0; i < triangleList.Count; i++)
-            {
-                Triangle2DF tri1 = triangleList[i];
-                for (int j = i+1; j < triangleList.Count; j++)
-                {
-                    Triangle2DF tri2 = triangleList[j];
-                    if (Math.Abs(tri1.Centeroid.X - tri2.Centeroid.X) < 10 && Math.Abs(tri1.Centeroid.Y - tri2.Centeroid.Y) < 10)
-                    {
-                        deletedTri.Add(tri1);
-                    }
-                }
-            }
-
-            for (int i = 0; i < deletedTri.Count; i++)
-            {
-                if (triangleList.Contains(deletedTri[i]))
-                {
-                    triangleList.Remove(deletedTri[i]);
-                }
-            }
-            deletedTri.Clear();
-
-            foreach (RotatedRect box in boxList)
-            {
-                if(Math.Abs(boxArea(box)-img.Height*img.Width) < 3000)
-                {
-                    deleted.Add(box);
-                }
-            }
-            for (int i = 0; i < deleted.Count; i++)
-            {
-                if (boxList.Contains(deleted[i]))
-                {
-                    boxList.Remove(deleted[i]);
-                }
-            }
-            deleted.Clear();
-
-
+            filterSame(boxList, triangleList, circles, img.Width * img.Height);
 
             List<PointF> points = new List<PointF>();
 
@@ -217,36 +269,11 @@ namespace image_segm
                 points.Add(circle.Center);
             }
 
-            points.Sort((a, b) => a.X.CompareTo(b.X));
-            PointF[] listPoints = new PointF[points.Count];
-            listPoints[0] = points[0];
-            int posCount = 0;
-            double minDist = img.Height * img.Width;
-            bool[] visited = new bool [points.Count];
-            for(int i = 0; i< visited.Length; i++)
-            {
-                visited[i] = false;
-            }
-            visited[0] = true;
+            PointF[] listPoints = sortPoints(points);
+            
+            System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
-            for ( int i = 0; i<points.Count - 1; i++)
-            {
-                posCount++;
-                int nxtPointIndex = i + 1;
-                for (int j = i + 1; j<points.Count; j++)
-                {
-                    if (getDistance(points[i], points[j]) < minDist && !visited[j])
-                    {
-                        nxtPointIndex = j;
-                        minDist = getDistance(points[i], points[j]);
-                    }
-                }
-                listPoints[posCount] = points[nxtPointIndex];
-                visited[nxtPointIndex] = true;
-                
-            }
-
-            resPicBox.Image = (Image).ToBitmap();
+            resPicBox.Image = (Image+img).ToBitmap();
            
         }
 
@@ -297,12 +324,19 @@ namespace image_segm
 
         private void processMediumToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
+            process((Bitmap)srcPicBox.Image, 1);
         }
 
         private void processManiacToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            process((Bitmap)srcPicBox.Image, 2);
+        }
 
+        private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            CvInvoke.MedianBlur(img, img, 25);
+            resPicBox.Image = img.ToBitmap();
         }
     }
 }
