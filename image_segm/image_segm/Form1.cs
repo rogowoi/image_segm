@@ -39,7 +39,7 @@ namespace image_segm
 
         Bitmap InitialImage;
         bool loaded = false;
-        
+        bool processed = false;
         
         private void filterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 7000, double threshold = 10)
         {
@@ -162,7 +162,179 @@ namespace image_segm
             return listPoints;
         }
 
+        private List<int> getNeighbours(int xPos, int yPos, Bitmap bitmap)
+        {
+            List<int> neighboursList = new List<int>();
 
+            int xStart, yStart, xFinish, yFinish;
+
+            int pixel;
+
+            xStart = xPos - 15;
+            yStart = yPos - 15;
+
+            xFinish = xPos + 15;
+            yFinish = yPos + 15;
+
+            for (int y = yStart; y <= yFinish; y++)
+            {
+                for (int x = xStart; x <= xFinish; x++)
+                {
+                    if (x < 0 || y < 0 || x > (bitmap.Width - 1) || y > (bitmap.Height - 1))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        pixel = bitmap.GetPixel(x, y).R;
+
+                        neighboursList.Add(pixel);
+                    }
+                }
+            }
+
+            return neighboursList;
+        }
+
+        private void bernsenBinarization(Bitmap bitmap)
+        {
+            Bitmap result = new Bitmap(bitmap);
+
+            byte iMin, iMax, t, c, contrastThreshold, pixel;
+
+            contrastThreshold = 15;
+
+            List<int> list = new List<int>();
+
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    list.Clear();
+
+                    pixel = bitmap.GetPixel(x, y).R;
+
+                    list = getNeighbours(x, y, bitmap);
+
+                    list.Sort();
+
+                    iMin = Convert.ToByte(list[0]);
+
+                    iMax = Convert.ToByte(list[list.Count - 1]);
+
+                    t = (byte)((iMax + iMin) / 2);
+
+                    c = (byte)(iMax - iMin);
+
+                    if (c < contrastThreshold)
+                    {
+                        pixel = (byte)((t >= 128) ? 0 : 255);
+                    }
+                    else
+                    {
+                        pixel = (byte)((pixel >= t) ? 0 : 255);
+                    }
+
+                    result.SetPixel(x, y, Color.FromArgb(pixel, pixel, pixel));
+                }
+            }
+            resPicBox.Image = result;
+        }
+
+        /*
+        private Image<Gray, byte> AdaptiveBinarization(Image<Gray, byte> image)
+        {
+            int x1, y1, x2, y2;
+            int s2 = image.Width / 2;
+            Image<Gray, byte> integralImg = new Image<Gray, byte>(image.Width, image.Height);
+            Image<Gray, byte> res = new Image<Gray, byte>(image.Width, image.Height);
+            for (int i = 0; i < image.Width; i++)
+            {
+                double sum = 0;
+                for (int j = 0; j < image.Height; j++)
+                {
+                    sum += image[j, i].Intensity;
+                    if (i == 0) integralImg[j, i] = new Gray(sum);
+                    else integralImg[j, i] = new Gray(sum + image[j, i - 1].Intensity);
+                }
+            }
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    x1 = i - s2; x2 = i + s2;
+                    y1 = j - s2; y2 = j + s2;
+
+                    if (x1 < 0) x1 = 0;
+                    if (x2 >= image.Width) x2 = image.Width - 1;
+                    if (y1 < 0) y1 = 0;
+                    if (y2 >= image.Height) y2 = image.Height - 1;
+
+                    int count = (x2 - x1) * (y2 - y1);
+                    double sum = integralImg[y2, x2].Intensity - integralImg[y1, x2].Intensity - integralImg[y2, x1].Intensity + integralImg[y1, x1].Intensity;
+                    if (image[j, i].Intensity * count < sum * (1 - 0.15))
+                        res[j, i] = new Gray(0);
+                    else res[j, i] = new Gray(255);
+                }
+            }
+
+            return res;
+        }
+        */
+
+        private double getKMeansThreshold(Image<Gray, byte> image)
+        {
+            double threshold = 0;
+            int[] hist = new int[256];
+            for (int i = 0; i < hist.Length; i++)
+            {
+                hist[i] = 0;
+            }
+
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    int val = (int)image[j, i].Intensity;
+                    hist[val] += 1;
+                }
+            }
+
+            threshold = hist.Length / 2;
+            double tOld = 0;
+
+            while(Math.Abs(threshold - tOld) > 3)
+            {
+                tOld = threshold;
+                double m1 = 0 , m2 = 0;
+                int m1Count = 0, m2Count = 0;
+                for (int i = 0; i < image.Width; i++)
+                {
+                    for (int j = 0; j < image.Height; j++)
+                    {
+                        int val = (int)image[j, i].Intensity;
+                        if(val > threshold)
+                        {
+                            m1 += val;
+                            m1Count++;
+                        }
+                        else
+                        {
+                            m2 += val;
+                            m2Count++;
+                        }
+                    }
+                }
+                m1 /= m1Count;
+                m2 /= m2Count;
+
+                threshold = (m1 + m2) / 2;
+            }
+            
+            return threshold;
+        }
+
+        
         private double getOtsuThreshold(Image<Gray, byte> image)
         {
             int N = image.Width * image.Height;
@@ -226,9 +398,13 @@ namespace image_segm
             {
                 CvInvoke.MedianBlur(img, img, 5);
             }
-            else if(level == 2)
+            else if(level > 1)
             {
-                CvInvoke.MedianBlur(img, img, 5);
+                for (int i = 0; i<level; i++)
+                {
+                    CvInvoke.MedianBlur(img, img, 5);
+
+                }
             }
 
             System.Console.WriteLine("Filtering done");
@@ -236,8 +412,9 @@ namespace image_segm
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
             CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
 
-            cannyThreshold = getOtsuThreshold(grayimage);
-            textBox1.Text = cannyThreshold.ToString();
+            //cannyThreshold = getOtsuThreshold(grayimage);
+            cannyThreshold = getKMeansThreshold(grayimage);
+            label2.Text = cannyThreshold.ToString();
 
 
             System.Console.WriteLine("Canny threshold using OTSU found " + cannyThreshold.ToString());
@@ -249,7 +426,8 @@ namespace image_segm
 
 
             CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1);
-            
+            System.Console.WriteLine("Circles founf " + circles.Length.ToString());
+
             UMat cannyEdges = new UMat();
             CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
 
@@ -357,6 +535,7 @@ namespace image_segm
             }
             loaded = true;
             dlg.Dispose();
+            processed = false;
         }
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
@@ -400,18 +579,38 @@ namespace image_segm
 
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            Image<Bgr, Byte> img;
+            if (!processed)
+            {
+                img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            }
+            else
+            {
+                img = new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
+            }
             CvInvoke.MedianBlur(img, img, 5);
             resPicBox.Image = img.ToBitmap();
+            processed = true;
+
         }
 
         private void thresholdingToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Bitmap bm = (Bitmap)srcPicBox.Image;
+            Bitmap bm; 
+            if (!processed)
+            {
+                bm = (Bitmap)srcPicBox.Image;
+            }
+            else
+            {
+                bm = (Bitmap)resPicBox.Image;
+            }
+
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
             double cannyThreshold = getOtsuThreshold(grayimage);
+            cannyThreshold = getKMeansThreshold(grayimage);
             Bitmap res = new Bitmap(bm.Width, bm.Height);
-            textBox1.Text = cannyThreshold.ToString();
+            label2.Text = cannyThreshold.ToString();
             for (int i = 0; i<grayimage.Height; i++)
             {
                 for (int j = 0; j<grayimage.Width; j++)
@@ -427,14 +626,30 @@ namespace image_segm
                 }
             }
             resPicBox.Image = res;
+            processed = true;
         }
 
         private void grayscalingToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Image<Bgr, Byte> img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            Image<Bgr, Byte> img;
+            if (!processed)
+            {
+                img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
+            }
+            else
+            {
+                img = new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
+            }
             UMat uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
             resPicBox.Image = uimage.Bitmap;
+            processed = true;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            processed = false;
+            label2.Text = "";
         }
     }
 }
