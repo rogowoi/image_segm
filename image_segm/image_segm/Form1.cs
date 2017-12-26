@@ -711,6 +711,7 @@ namespace image_segm
                 posCount++;
             }
 
+
             return res;
         }
     }
