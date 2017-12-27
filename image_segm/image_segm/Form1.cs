@@ -441,24 +441,12 @@ namespace image_segm
             CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
             
             maxRadius = img.Width / 10;
-            if (level == 1)
-            {
-                CvInvoke.MedianBlur(img, img, 5);
-                circleAccumulatorThreshold = 100.0;
-                
-            }
-            else if (level > 1)
-            {
-                CvInvoke.MedianBlur(img, img, 7);
-                circleAccumulatorThreshold = 120.0;
-            }
+            
             
             BlackBG(grayimage);
             
             System.Console.WriteLine("Filtering done");
 
-            
-            //cannyThreshold = GetOtsuThreshold(grayimage);
             cannyThreshold = GetKMeansThreshold(grayimage);
             label2.Text = cannyThreshold.ToString();
             
@@ -476,14 +464,21 @@ namespace image_segm
             System.Console.WriteLine("Circles found " + circles.Length.ToString());
 
             UMat cannyEdges = new UMat();
-            CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
-
+            if (level == 0)
+            {
+                CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
+            }
+            else
+            {
+                CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
+            }
+            
             LineSegment2D[] lines = CvInvoke.HoughLinesP(cannyEdges,
                1, //Distance resolution in pixel-related units
                Math.PI / 180.0, //Angle resolution measured in radians.
                1, //threshold
                10, //min Line length
-               10); //gap between lines
+               5); //gap between lines
             System.Console.WriteLine("Lines detected");
 
             List<Triangle2DF> triangleList = new List<Triangle2DF>();
@@ -498,8 +493,8 @@ namespace image_segm
                     using (VectorOfPoint contour = contours[i])
                     using (VectorOfPoint approxContour = new VectorOfPoint())
                     {
-                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.1, true);
-                        if (!(CvInvoke.ContourArea(approxContour, false) > 50)) continue;
+                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
+                        if (!(CvInvoke.ContourArea(approxContour, false) > 10)) continue;
                         switch (approxContour.Size)
                         {
                             case 3:
