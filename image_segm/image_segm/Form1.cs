@@ -395,13 +395,14 @@ namespace image_segm
         }
 
         //3
-        private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 90.0)
+        private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0)
         {
             double cannyThreshold = 0;
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
             if (level == 1)
             {
                 CvInvoke.MedianBlur(img, img, 5);
+                circleAccumulatorThreshold = 100.0;
             }
             else if(level > 1)
             {
@@ -410,6 +411,7 @@ namespace image_segm
                     CvInvoke.MedianBlur(img, img, 5);
 
                 }
+                circleAccumulatorThreshold = 120.0;
             }
 
             System.Console.WriteLine("Filtering done");
@@ -430,7 +432,7 @@ namespace image_segm
 
 
 
-            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1);
+            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, img.Height/10);
             System.Console.WriteLine("Circles founf " + circles.Length.ToString());
 
             UMat cannyEdges = new UMat();
