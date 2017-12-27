@@ -22,6 +22,8 @@ namespace image_segm
             InitializeComponent();
         }
 
+        int n = 100;
+
         private void Form1_Load(object sender, EventArgs e)
         {
 
@@ -389,7 +391,7 @@ namespace image_segm
             return threshold/2;
         }
 
-
+        //3
         private void process(Bitmap bm, int level, double circleAccumulatorThreshold = 90.0)
         {
             double cannyThreshold = 0;
@@ -500,7 +502,7 @@ namespace image_segm
                 Image.Draw(triangle, new Bgr(Color.Red), 3);
                 points.Add(triangle.Centeroid);
             }
-                
+            
             foreach (RotatedRect box in boxList)
             {
                 Image.Draw(box, new Bgr(Color.Blue), 3);
@@ -514,11 +516,21 @@ namespace image_segm
             }
 
             PointF[] listPoints = sortPoints(points);
-            
+
+
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
             resPicBox.Image = (Image+img).ToBitmap();
-           
+            PointF[] BezierList = getBezierCurve(listPoints);
+            Graphics g = Graphics.FromImage(resPicBox.Image);
+            Pen p = new Pen(Color.Red);
+            for (int i = 0; i < n - 1; i++) {
+                g.DrawLine(p, BezierList[i], BezierList[i+1]);
+            }
+
+
+            System.Console.WriteLine(BezierList[0].X + "   " + BezierList[0].Y);
+            System.Console.WriteLine(BezierList[1].X + "   " + BezierList[1].Y);
         }
 
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -650,6 +662,57 @@ namespace image_segm
         {
             processed = false;
             label2.Text = "";
+        }
+
+        //Bezier
+        int factor(int n) {
+            int fact = 1;
+            for (int j = 2; j <= n; j++)
+            {
+                fact *= j;
+            }
+            return fact;
+        }
+
+        float getBezierBasis(int i, int n, float t)
+        {
+            // Факториал
+            int fact = 1;
+            for (int j = 2; j <= n; j++) {
+                fact *= j;
+            }
+
+            // считаем i-й элемент полинома Берштейна
+            return (factor(n) / (factor(i) * factor(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
+        }
+
+        // arr - массив опорных точек. Точка - двухэлементный массив, (x = arr[0], y = arr[1])
+        // step - шаг при расчете кривой (0 < step < 1), по умолчанию 0.01
+        private PointF[] getBezierCurve(PointF[] arr, float step = 0f)
+        {
+            PointF[] res = new PointF[n + 1];
+            int posCount = 0;
+            step = (float)1 / n;
+
+            for (float t = 0f; t < 1; t += step)
+            {
+                //var ind = res.length;
+
+                //res[ind] = new Array(0, 0);
+
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    float b = getBezierBasis(i, arr.Length - 1, t);
+
+                    res[posCount].X += arr[i].X * b;
+                    res[posCount].Y += arr[i].Y * b;
+                }
+                //System.Console.WriteLine("t = " + t);
+                posCount++;
+            }
+
+
+            return res;
         }
     }
 }
