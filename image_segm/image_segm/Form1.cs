@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace image_segm
@@ -40,17 +41,15 @@ namespace image_segm
         Bitmap InitialImage;
         bool loaded = false;
         bool processed = false;
-        
-        private void FilterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 7000, double threshold = 10)
+
+        private void FilterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 8000, double threshold = 10)
         {
             List<RotatedRect> deleted = new List<RotatedRect>();
 
-            for (int i = 0; i < boxList.Count; i++)
+            foreach (RotatedRect box in boxList)
             {
-                RotatedRect box = boxList[i];
-                for (int j = 0; j < circles.Length; j++)
+                foreach (CircleF circle in circles)
                 {
-                    CircleF circle = circles[j];
                     if (Math.Abs(box.Center.X - circle.Center.X) < threshold && Math.Abs(box.Center.Y - circle.Center.Y) < threshold)
                     {
                         deleted.Add(box);
@@ -58,11 +57,11 @@ namespace image_segm
                 }
             }
 
-            for (int i = 0; i < deleted.Count; i++)
+            foreach (RotatedRect box in deleted)
             {
-                if (boxList.Contains(deleted[i]))
+                if (boxList.Contains(box))
                 {
-                    boxList.Remove(deleted[i]);
+                    boxList.Remove(box);
                 }
             }
             deleted.Clear();
@@ -79,11 +78,11 @@ namespace image_segm
                 }
             }
 
-            for (int i = 0; i < deleted.Count; i++)
+            foreach (RotatedRect box in deleted)
             {
-                if (boxList.Contains(deleted[i]))
+                if (boxList.Contains(box))
                 {
-                    boxList.Remove(deleted[i]);
+                    boxList.Remove(box);
                 }
             }
             deleted.Clear();
@@ -166,15 +165,11 @@ namespace image_segm
         {
             List<int> neighboursList = new List<int>();
 
-            int xStart, yStart, xFinish, yFinish;
+            var xStart = xPos - 15;
+            var yStart = yPos - 15;
 
-            int pixel;
-
-            xStart = xPos - 15;
-            yStart = yPos - 15;
-
-            xFinish = xPos + 15;
-            yFinish = yPos + 15;
+            var xFinish = xPos + 15;
+            var yFinish = yPos + 15;
 
             for (int y = yStart; y <= yFinish; y++)
             {
@@ -186,7 +181,7 @@ namespace image_segm
                     }
                     else
                     {
-                        pixel = bitmap.GetPixel(x, y).R;
+                        int pixel = bitmap.GetPixel(x, y).R;
 
                         neighboursList.Add(pixel);
                     }
@@ -200,9 +195,7 @@ namespace image_segm
         {
             Bitmap result = new Bitmap(bitmap);
 
-            byte iMin, iMax, t, c, contrastThreshold, pixel;
-
-            contrastThreshold = 15;
+            byte contrastThreshold = 15;
 
             List<int> list = new List<int>();
 
@@ -212,19 +205,19 @@ namespace image_segm
                 {
                     list.Clear();
 
-                    pixel = bitmap.GetPixel(x, y).R;
+                    var pixel = bitmap.GetPixel(x, y).R;
 
                     list = GetNeighbours(x, y, bitmap);
 
                     list.Sort();
 
-                    iMin = Convert.ToByte(list[0]);
+                    var iMin = Convert.ToByte(list[0]);
 
-                    iMax = Convert.ToByte(list[list.Count - 1]);
+                    var iMax = Convert.ToByte(list[list.Count - 1]);
 
-                    t = (byte)((iMax + iMin) / 2);
+                    var t = (byte)((iMax + iMin) / 2);
 
-                    c = (byte)(iMax - iMin);
+                    var c = (byte)(iMax - iMin);
 
                     if (c < contrastThreshold)
                     {
@@ -375,9 +368,8 @@ namespace image_segm
             {
                 for (int j = 0; j < image.Rows; j++)
                 {
-                    if (image[j, i].Intensity > threshold)
-                        image[j, i] = new Gray(255);
-                    else image[j, i] = new Gray(0);
+                    if (image[j, i].Intensity < threshold)
+                        image[j, i] = new Gray(0);
                 }
             }
         }
@@ -469,7 +461,8 @@ namespace image_segm
             //cannyThreshold = GetOtsuThreshold(grayimage);
             cannyThreshold = GetKMeansThreshold(grayimage);
             label2.Text = cannyThreshold.ToString();
-
+            
+            Thresholding(grayimage, cannyThreshold);
 
             System.Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold.ToString());
 
@@ -483,10 +476,9 @@ namespace image_segm
             System.Console.WriteLine("Circles found " + circles.Length.ToString());
 
             UMat cannyEdges = new UMat();
-            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
+            CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
 
-            LineSegment2D[] lines = CvInvoke.HoughLinesP(
-               cannyEdges,
+            LineSegment2D[] lines = CvInvoke.HoughLinesP(cannyEdges,
                1, //Distance resolution in pixel-related units
                Math.PI / 180.0, //Angle resolution measured in radians.
                1, //threshold
@@ -506,8 +498,8 @@ namespace image_segm
                     using (VectorOfPoint contour = contours[i])
                     using (VectorOfPoint approxContour = new VectorOfPoint())
                     {
-                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
-                        if (!(CvInvoke.ContourArea(approxContour, false) > 10)) continue;
+                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.1, true);
+                        if (!(CvInvoke.ContourArea(approxContour, false) > 50)) continue;
                         switch (approxContour.Size)
                         {
                             case 3:
@@ -522,20 +514,10 @@ namespace image_segm
                             }
                             case 4:
                             {
-                                bool isRectangle = true;
                                 Point[] pts = approxContour.ToArray();
                                 LineSegment2D[] edges = PointCollection.PolyLine(pts, true);
 
-                                for (int j = 0; j < edges.Length; j++)
-                                {
-                                    double angle = Math.Abs(
-                                        edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
-                                    if (angle < 80 || angle > 100)
-                                    {
-                                        isRectangle = false;
-                                        break;
-                                    }
-                                }
+                                bool isRectangle = edges.Select((t, j) => Math.Abs(edges[(j + 1) % edges.Length].GetExteriorAngleDegree(t))).All(angle => !(angle < 80) && !(angle > 100));
                                 if (isRectangle) boxList.Add(CvInvoke.MinAreaRect(approxContour));
                                 break;
                             }
@@ -647,14 +629,7 @@ namespace image_segm
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Image<Bgr, Byte> img;
-            if (!processed)
-            {
-                img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
-            }
-            else
-            {
-                img = new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
-            }
+            img = !processed ? new Image<Bgr, Byte>((Bitmap)srcPicBox.Image) : new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
             CvInvoke.MedianBlur(img, img, 5);
             resPicBox.Image = img.ToBitmap();
             processed = true;
@@ -683,14 +658,7 @@ namespace image_segm
             {
                 for (int j = 0; j<grayimage.Width; j++)
                 {
-                    if (grayimage[i, j].Intensity > cannyThreshold)
-                    {
-                        res.SetPixel(j, i, Color.White);
-                    }
-                    else
-                    {
-                        res.SetPixel(j, i, Color.Black);
-                    }
+                    res.SetPixel(j, i, grayimage[i, j].Intensity > cannyThreshold ? Color.White : Color.Black);
                 }
             }
             resPicBox.Image = grayimage.Bitmap;
@@ -703,14 +671,7 @@ namespace image_segm
         private void grayscalingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Image<Bgr, Byte> img;
-            if (!processed)
-            {
-                img = new Image<Bgr, Byte>((Bitmap)srcPicBox.Image);
-            }
-            else
-            {
-                img = new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
-            }
+            img = !processed ? new Image<Bgr, Byte>((Bitmap)srcPicBox.Image) : new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
             UMat uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
             resPicBox.Image = uimage.Bitmap;
@@ -806,7 +767,6 @@ namespace image_segm
 
             return res;
         }
-
         
     }
 }

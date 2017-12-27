@@ -38,6 +38,7 @@
             this.medianFilterToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.thresholdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.grayscalingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.cannyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.processToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.processSimpleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.processMediumToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -45,7 +46,8 @@
             this.label1 = new System.Windows.Forms.Label();
             this.button1 = new System.Windows.Forms.Button();
             this.label2 = new System.Windows.Forms.Label();
-            this.cannyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.labelX = new System.Windows.Forms.Label();
+            this.labelY = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -118,23 +120,30 @@
             // medianFilterToolStripMenuItem
             // 
             this.medianFilterToolStripMenuItem.Name = "medianFilterToolStripMenuItem";
-            this.medianFilterToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.medianFilterToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
             this.medianFilterToolStripMenuItem.Text = "Median Filter";
             this.medianFilterToolStripMenuItem.Click += new System.EventHandler(this.medianFilterToolStripMenuItem_Click);
             // 
             // thresholdingToolStripMenuItem
             // 
             this.thresholdingToolStripMenuItem.Name = "thresholdingToolStripMenuItem";
-            this.thresholdingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.thresholdingToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
             this.thresholdingToolStripMenuItem.Text = "Thresholding";
             this.thresholdingToolStripMenuItem.Click += new System.EventHandler(this.thresholdingToolStripMenuItem_Click);
             // 
             // grayscalingToolStripMenuItem
             // 
             this.grayscalingToolStripMenuItem.Name = "grayscalingToolStripMenuItem";
-            this.grayscalingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.grayscalingToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
             this.grayscalingToolStripMenuItem.Text = "Grayscaling";
             this.grayscalingToolStripMenuItem.Click += new System.EventHandler(this.grayscalingToolStripMenuItem_Click);
+            // 
+            // cannyToolStripMenuItem
+            // 
+            this.cannyToolStripMenuItem.Name = "cannyToolStripMenuItem";
+            this.cannyToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
+            this.cannyToolStripMenuItem.Text = "Canny";
+            this.cannyToolStripMenuItem.Click += new System.EventHandler(this.cannyToolStripMenuItem_Click);
             // 
             // processToolStripMenuItem
             // 
@@ -195,18 +204,31 @@
             this.label2.TabIndex = 6;
             this.label2.Text = " ";
             // 
-            // cannyToolStripMenuItem
+            // labelX
             // 
-            this.cannyToolStripMenuItem.Name = "cannyToolStripMenuItem";
-            this.cannyToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.cannyToolStripMenuItem.Text = "Canny";
-            this.cannyToolStripMenuItem.Click += new System.EventHandler(this.cannyToolStripMenuItem_Click);
+            this.labelX.AutoSize = true;
+            this.labelX.Location = new System.Drawing.Point(12, 643);
+            this.labelX.Name = "labelX";
+            this.labelX.Size = new System.Drawing.Size(13, 13);
+            this.labelX.TabIndex = 7;
+            this.labelX.Text = "0";
+            // 
+            // labelY
+            // 
+            this.labelY.AutoSize = true;
+            this.labelY.Location = new System.Drawing.Point(76, 643);
+            this.labelY.Name = "labelY";
+            this.labelY.Size = new System.Drawing.Size(13, 13);
+            this.labelY.TabIndex = 8;
+            this.labelY.Text = "0";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1210, 669);
+            this.Controls.Add(this.labelY);
+            this.Controls.Add(this.labelX);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.label1);
@@ -248,6 +270,8 @@
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.ToolStripMenuItem cannyToolStripMenuItem;
+        private System.Windows.Forms.Label labelX;
+        private System.Windows.Forms.Label labelY;
     }
 }
 
