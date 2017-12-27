@@ -48,6 +48,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.labelX = new System.Windows.Forms.Label();
             this.labelY = new System.Windows.Forms.Label();
+            this.filterToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -112,7 +113,8 @@
             this.medianFilterToolStripMenuItem,
             this.thresholdingToolStripMenuItem,
             this.grayscalingToolStripMenuItem,
-            this.cannyToolStripMenuItem});
+            this.cannyToolStripMenuItem,
+            this.filterToolStripMenuItem});
             this.filteringToolStripMenuItem.Name = "filteringToolStripMenuItem";
             this.filteringToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.filteringToolStripMenuItem.Text = "Filtering";
@@ -120,28 +122,28 @@
             // medianFilterToolStripMenuItem
             // 
             this.medianFilterToolStripMenuItem.Name = "medianFilterToolStripMenuItem";
-            this.medianFilterToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
+            this.medianFilterToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.medianFilterToolStripMenuItem.Text = "Median Filter";
             this.medianFilterToolStripMenuItem.Click += new System.EventHandler(this.medianFilterToolStripMenuItem_Click);
             // 
             // thresholdingToolStripMenuItem
             // 
             this.thresholdingToolStripMenuItem.Name = "thresholdingToolStripMenuItem";
-            this.thresholdingToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
+            this.thresholdingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.thresholdingToolStripMenuItem.Text = "Thresholding";
             this.thresholdingToolStripMenuItem.Click += new System.EventHandler(this.thresholdingToolStripMenuItem_Click);
             // 
             // grayscalingToolStripMenuItem
             // 
             this.grayscalingToolStripMenuItem.Name = "grayscalingToolStripMenuItem";
-            this.grayscalingToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
+            this.grayscalingToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.grayscalingToolStripMenuItem.Text = "Grayscaling";
             this.grayscalingToolStripMenuItem.Click += new System.EventHandler(this.grayscalingToolStripMenuItem_Click);
             // 
             // cannyToolStripMenuItem
             // 
             this.cannyToolStripMenuItem.Name = "cannyToolStripMenuItem";
-            this.cannyToolStripMenuItem.Size = new System.Drawing.Size(144, 22);
+            this.cannyToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.cannyToolStripMenuItem.Text = "Canny";
             this.cannyToolStripMenuItem.Click += new System.EventHandler(this.cannyToolStripMenuItem_Click);
             // 
@@ -222,6 +224,13 @@
             this.labelY.TabIndex = 8;
             this.labelY.Text = "0";
             // 
+            // filterToolStripMenuItem
+            // 
+            this.filterToolStripMenuItem.Name = "filterToolStripMenuItem";
+            this.filterToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.filterToolStripMenuItem.Text = "Bilateral filter";
+            this.filterToolStripMenuItem.Click += new System.EventHandler(this.filterToolStripMenuItem_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -272,6 +281,7 @@
         private System.Windows.Forms.ToolStripMenuItem cannyToolStripMenuItem;
         private System.Windows.Forms.Label labelX;
         private System.Windows.Forms.Label labelY;
+        private System.Windows.Forms.ToolStripMenuItem filterToolStripMenuItem;
     }
 }
 

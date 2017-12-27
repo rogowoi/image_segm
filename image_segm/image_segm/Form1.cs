@@ -8,6 +8,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
 using System.Windows.Forms;
+using Emgu.CV.Stitching;
 
 namespace image_segm
 {
@@ -370,6 +371,7 @@ namespace image_segm
                 {
                     if (image[j, i].Intensity < threshold)
                         image[j, i] = new Gray(0);
+                    else image[j, i] = new Gray(255);
                 }
             }
         }
@@ -436,18 +438,31 @@ namespace image_segm
             double cannyThreshold = 0;
             
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
-            
+            if (level == 1)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+                var resImage = new Image<Bgr, Byte>(img.Bitmap);
+                CvInvoke.BilateralFilter(resImage, img, 30, 75, 75);
+            }
+            else if (level == 2)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+                var resImage = new Image<Bgr, Byte>(img.Bitmap);
+                CvInvoke.BilateralFilter(resImage, img, 25, 75, 75);
+                CvInvoke.Blur(img, img, new Size(5, 5), new Point(0,0));
+                
+            }
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
             CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
             
             maxRadius = img.Width / 10;
-            
             
             BlackBG(grayimage);
             
             System.Console.WriteLine("Filtering done");
 
             cannyThreshold = GetKMeansThreshold(grayimage);
+            
             label2.Text = cannyThreshold.ToString();
             
             Thresholding(grayimage, cannyThreshold);
@@ -461,6 +476,7 @@ namespace image_segm
 
 
             CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, maxRadius);
+            
             System.Console.WriteLine("Circles found " + circles.Length.ToString());
 
             UMat cannyEdges = new UMat();
@@ -468,16 +484,20 @@ namespace image_segm
             {
                 CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
             }
-            else
+            else if (level == 1)
             {
                 CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
+            }
+            else
+            {
+                CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
             }
             
             LineSegment2D[] lines = CvInvoke.HoughLinesP(cannyEdges,
                1, //Distance resolution in pixel-related units
                Math.PI / 180.0, //Angle resolution measured in radians.
                1, //threshold
-               10, //min Line length
+               5, //min Line length
                5); //gap between lines
             System.Console.WriteLine("Lines detected");
 
@@ -762,6 +782,15 @@ namespace image_segm
 
             return res;
         }
-        
+
+        private void filterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Image<Bgr, Byte> img;
+            img = !processed ? new Image<Bgr, Byte>((Bitmap)srcPicBox.Image) : new Image<Bgr, Byte>((Bitmap)resPicBox.Image);
+            var resImage = new Image<Bgr, Byte>(img.Bitmap);
+            CvInvoke.BilateralFilter(img, resImage,25, 75, 75);
+            resPicBox.Image = resImage.ToBitmap();
+            processed = true;
+        }
     }
 }
