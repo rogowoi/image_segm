@@ -4,13 +4,8 @@ using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace image_segm
@@ -32,12 +27,12 @@ namespace image_segm
 
         }
 
-        private float boxArea(RotatedRect box)
+        private static float BoxArea(RotatedRect box)
         {
             return box.Size.Height * box.Size.Width;
         }
 
-        private double getDistance(PointF p1, PointF p2)
+        private double GetDistance(PointF p1, PointF p2)
         {
             return Math.Sqrt((p1.X - p2.X) * (p1.X - p2.X) + (p1.Y - p2.Y) * (p1.Y - p2.Y));
         }
@@ -77,7 +72,7 @@ namespace image_segm
                 for (int j = i + 1; j < boxList.Count; j++)
                 {
                     RotatedRect box2 = boxList[j];
-                    if (Math.Abs(boxArea(box1) - boxArea(box2)) < areaDiff && Math.Abs(box1.Center.X - box2.Center.X) < threshold && Math.Abs(box1.Center.Y - box2.Center.Y) < threshold)
+                    if (Math.Abs(BoxArea(box1) - BoxArea(box2)) < areaDiff && Math.Abs(box1.Center.X - box2.Center.X) < threshold && Math.Abs(box1.Center.Y - box2.Center.Y) < threshold)
                     {
                         deleted.Add(box2);
                     }
@@ -119,16 +114,16 @@ namespace image_segm
 
             foreach (RotatedRect box in boxList)
             {
-                if (Math.Abs(boxArea(box) - imageSize) < areaDiff)
+                if (Math.Abs(BoxArea(box) - imageSize) < areaDiff)
                 {
                     deleted.Add(box);
                 }
             }
-            for (int i = 0; i < deleted.Count; i++)
+            foreach (RotatedRect box in deleted)
             {
-                if (boxList.Contains(deleted[i]))
+                if (boxList.Contains(box))
                 {
-                    boxList.Remove(deleted[i]);
+                    boxList.Remove(box);
                 }
             }
             deleted.Clear();
@@ -154,10 +149,10 @@ namespace image_segm
                 int nxtPointIndex = i + 1;
                 for (int j = i + 1; j < points.Count; j++)
                 {
-                    if (getDistance(points[i], points[j]) < minDist && !visited[j])
+                    if (GetDistance(points[i], points[j]) < minDist && !visited[j])
                     {
                         nxtPointIndex = j;
-                        minDist = getDistance(points[i], points[j]);
+                        minDist = GetDistance(points[i], points[j]);
                     }
                 }
                 listPoints[posCount] = points[nxtPointIndex];
@@ -339,6 +334,54 @@ namespace image_segm
             return threshold;
         }
 
+        private void BlackBG(Image<Gray, byte> image)
+        {
+            int[] hist = new int[256];
+            for (int i = 0; i < hist.Length; i++)
+            {
+                hist[i] = 0;
+            }
+
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    int val = (int)image[j, i].Intensity;
+                    hist[val] += 1;
+                }
+            }
+            int max = 0;
+            for (int i = 0; i < hist.Length; i++)
+            {
+                if (hist[i] > hist[max])
+                {
+                    max = i;
+                }
+            }
+            
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    if ((int) image[j, i].Intensity == max)
+                        image[j, i] = new Gray(0);
+                }
+            }
+        }
+
+        private void Thresholding(Image<Gray, Byte> image, double threshold)
+        {
+            for (int i = 0; i < image.Cols; i++)
+            {
+                for (int j = 0; j < image.Rows; j++)
+                {
+                    if (image[j, i].Intensity > threshold)
+                        image[j, i] = new Gray(255);
+                    else image[j, i] = new Gray(0);
+                }
+            }
+        }
+        
         
         private double GetOtsuThreshold(Image<Gray, byte> image)
         {
@@ -394,37 +437,41 @@ namespace image_segm
             return threshold/2;
         }
 
-        //3
-        private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0)
+        
+        private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0, int maxRadius = 0)
         {
+            
             double cannyThreshold = 0;
+            
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
+            
+            Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
+            CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
+            
+            maxRadius = img.Width / 10;
             if (level == 1)
             {
                 CvInvoke.MedianBlur(img, img, 5);
                 circleAccumulatorThreshold = 100.0;
+                
             }
-            else if(level > 1)
+            else if (level > 1)
             {
-                for (int i = 0; i<level; i++)
-                {
-                    CvInvoke.MedianBlur(img, img, 5);
-
-                }
+                CvInvoke.MedianBlur(img, img, 7);
                 circleAccumulatorThreshold = 120.0;
             }
-
+            
+            BlackBG(grayimage);
+            
             System.Console.WriteLine("Filtering done");
 
-            Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
-            CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
-
-            //cannyThreshold = getOtsuThreshold(grayimage);
+            
+            //cannyThreshold = GetOtsuThreshold(grayimage);
             cannyThreshold = GetKMeansThreshold(grayimage);
             label2.Text = cannyThreshold.ToString();
 
 
-            System.Console.WriteLine("Canny threshold using OTSU found " + cannyThreshold.ToString());
+            System.Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold.ToString());
 
             //Convert the image to grayscale and filter out the noise
             UMat uimage = new UMat();
@@ -432,8 +479,8 @@ namespace image_segm
 
 
 
-            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, img.Height/10);
-            System.Console.WriteLine("Circles founf " + circles.Length.ToString());
+            CircleF[] circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, maxRadius);
+            System.Console.WriteLine("Circles found " + circles.Length.ToString());
 
             UMat cannyEdges = new UMat();
             CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
@@ -441,9 +488,9 @@ namespace image_segm
             LineSegment2D[] lines = CvInvoke.HoughLinesP(
                cannyEdges,
                1, //Distance resolution in pixel-related units
-               Math.PI / 45.0, //Angle resolution measured in radians.
-               20, //threshold
-               30, //min Line width
+               Math.PI / 180.0, //Angle resolution measured in radians.
+               1, //threshold
+               10, //min Line length
                10); //gap between lines
             System.Console.WriteLine("Lines detected");
 
@@ -627,6 +674,7 @@ namespace image_segm
             }
 
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
+            BlackBG(grayimage);
             double cannyThreshold = GetOtsuThreshold(grayimage);
             cannyThreshold = GetKMeansThreshold(grayimage);
             Bitmap res = new Bitmap(bm.Width, bm.Height);
@@ -645,10 +693,13 @@ namespace image_segm
                     }
                 }
             }
-            resPicBox.Image = res;
+            resPicBox.Image = grayimage.Bitmap;
             processed = true;
         }
-
+        
+        
+        
+        
         private void grayscalingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Image<Bgr, Byte> img;
@@ -665,7 +716,40 @@ namespace image_segm
             resPicBox.Image = uimage.Bitmap;
             processed = true;
         }
+        
+        
+        private void cannyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Bitmap bm;
+            if (!processed)
+            {
+                bm = (Bitmap)srcPicBox.Image;
+            }
+            else
+            {
+                bm = (Bitmap)resPicBox.Image;
+            }
+            Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
 
+            UMat uimage = new UMat();
+
+            CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
+            Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
+            CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
+            BlackBG(grayimage);
+            double cannyThreshold = GetOtsuThreshold(grayimage);
+            cannyThreshold = GetKMeansThreshold(grayimage);
+
+            UMat cannyEdges = new UMat();
+
+            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
+
+            resPicBox.Image = cannyEdges.Bitmap;
+
+            processed = true;
+        }
+
+        
         private void button1_Click(object sender, EventArgs e)
         {
             processed = false;
@@ -722,5 +806,7 @@ namespace image_segm
 
             return res;
         }
+
+        
     }
 }

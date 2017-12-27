@@ -45,6 +45,7 @@
             this.label1 = new System.Windows.Forms.Label();
             this.button1 = new System.Windows.Forms.Button();
             this.label2 = new System.Windows.Forms.Label();
+            this.cannyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.srcPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.resPicBox)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -108,7 +109,8 @@
             this.filteringToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.medianFilterToolStripMenuItem,
             this.thresholdingToolStripMenuItem,
-            this.grayscalingToolStripMenuItem});
+            this.grayscalingToolStripMenuItem,
+            this.cannyToolStripMenuItem});
             this.filteringToolStripMenuItem.Name = "filteringToolStripMenuItem";
             this.filteringToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.filteringToolStripMenuItem.Text = "Filtering";
@@ -193,6 +195,13 @@
             this.label2.TabIndex = 6;
             this.label2.Text = " ";
             // 
+            // cannyToolStripMenuItem
+            // 
+            this.cannyToolStripMenuItem.Name = "cannyToolStripMenuItem";
+            this.cannyToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.cannyToolStripMenuItem.Text = "Canny";
+            this.cannyToolStripMenuItem.Click += new System.EventHandler(this.cannyToolStripMenuItem_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -238,6 +247,7 @@
         private System.Windows.Forms.ToolStripMenuItem grayscalingToolStripMenuItem;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.ToolStripMenuItem cannyToolStripMenuItem;
     }
 }
 
