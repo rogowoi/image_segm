@@ -21,9 +21,12 @@ namespace image_segm
         {
             InitializeComponent();
         }
-
+        
+        
+        // what's n???????
         int n = 100;
 
+        
         private void Form1_Load(object sender, EventArgs e)
         {
 
@@ -43,7 +46,7 @@ namespace image_segm
         bool loaded = false;
         bool processed = false;
         
-        private void filterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 7000, double threshold = 10)
+        private void FilterSame(List<RotatedRect> boxList, List<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 7000, double threshold = 10)
         {
             List<RotatedRect> deleted = new List<RotatedRect>();
 
@@ -131,7 +134,7 @@ namespace image_segm
             deleted.Clear();
         }
 
-        private PointF[] sortPoints(List<PointF> points)
+        private PointF[] SortPoints(List<PointF> points)
         {
             points.Sort((a, b) => a.X.CompareTo(b.X));
             PointF[] listPoints = new PointF[points.Count];
@@ -164,7 +167,7 @@ namespace image_segm
             return listPoints;
         }
 
-        private List<int> getNeighbours(int xPos, int yPos, Bitmap bitmap)
+        private List<int> GetNeighbours(int xPos, int yPos, Bitmap bitmap)
         {
             List<int> neighboursList = new List<int>();
 
@@ -198,7 +201,7 @@ namespace image_segm
             return neighboursList;
         }
 
-        private void bernsenBinarization(Bitmap bitmap)
+        private void BernsenBinarization(Bitmap bitmap)
         {
             Bitmap result = new Bitmap(bitmap);
 
@@ -216,7 +219,7 @@ namespace image_segm
 
                     pixel = bitmap.GetPixel(x, y).R;
 
-                    list = getNeighbours(x, y, bitmap);
+                    list = GetNeighbours(x, y, bitmap);
 
                     list.Sort();
 
@@ -284,7 +287,7 @@ namespace image_segm
         }
         */
 
-        private double getKMeansThreshold(Image<Gray, byte> image)
+        private double GetKMeansThreshold(Image<Gray, byte> image)
         {
             double threshold = 0;
             int[] hist = new int[256];
@@ -310,11 +313,11 @@ namespace image_segm
                 tOld = threshold;
                 double m1 = 0 , m2 = 0;
                 int m1Count = 0, m2Count = 0;
-                for (int i = 0; i < image.Width; i++)
+                for (var i = 0; i < image.Width; i++)
                 {
-                    for (int j = 0; j < image.Height; j++)
+                    for (var j = 0; j < image.Height; j++)
                     {
-                        int val = (int)image[j, i].Intensity;
+                        var val = (int)image[j, i].Intensity;
                         if(val > threshold)
                         {
                             m1 += val;
@@ -337,7 +340,7 @@ namespace image_segm
         }
 
         
-        private double getOtsuThreshold(Image<Gray, byte> image)
+        private double GetOtsuThreshold(Image<Gray, byte> image)
         {
             int N = image.Width * image.Height;
             double threshold = 0;
@@ -392,7 +395,7 @@ namespace image_segm
         }
 
         //3
-        private void process(Bitmap bm, int level, double circleAccumulatorThreshold = 90.0)
+        private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 90.0)
         {
             double cannyThreshold = 0;
             Image<Bgr, Byte> img = new Image<Bgr, Byte>(bm);
@@ -415,7 +418,7 @@ namespace image_segm
             CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
 
             //cannyThreshold = getOtsuThreshold(grayimage);
-            cannyThreshold = getKMeansThreshold(grayimage);
+            cannyThreshold = GetKMeansThreshold(grayimage);
             label2.Text = cannyThreshold.ToString();
 
 
@@ -455,18 +458,20 @@ namespace image_segm
                     using (VectorOfPoint approxContour = new VectorOfPoint())
                     {
                         CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
-                        if (CvInvoke.ContourArea(approxContour, false) > 10)
+                        if (!(CvInvoke.ContourArea(approxContour, false) > 10)) continue;
+                        switch (approxContour.Size)
                         {
-                            if (approxContour.Size == 3)
+                            case 3:
                             {
                                 Point[] pts = approxContour.ToArray();
                                 triangleList.Add(new Triangle2DF(
-                                   pts[0],
-                                   pts[1],
-                                   pts[2]
-                                   ));
+                                    pts[0],
+                                    pts[1],
+                                    pts[2]
+                                ));
+                                break;
                             }
-                            else if (approxContour.Size == 4)
+                            case 4:
                             {
                                 bool isRectangle = true;
                                 Point[] pts = approxContour.ToArray();
@@ -475,7 +480,7 @@ namespace image_segm
                                 for (int j = 0; j < edges.Length; j++)
                                 {
                                     double angle = Math.Abs(
-                                       edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
+                                        edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
                                     if (angle < 80 || angle > 100)
                                     {
                                         isRectangle = false;
@@ -483,6 +488,7 @@ namespace image_segm
                                     }
                                 }
                                 if (isRectangle) boxList.Add(CvInvoke.MinAreaRect(approxContour));
+                                break;
                             }
                         }
                     }
@@ -492,7 +498,7 @@ namespace image_segm
             System.Console.WriteLine("Boxes found " + boxList.Count.ToString());
             System.Console.WriteLine("Triangles found " + triangleList.Count.ToString());
 
-            filterSame(boxList, triangleList, circles, img.Width * img.Height);
+            FilterSame(boxList, triangleList, circles, img.Width * img.Height);
 
             List<PointF> points = new List<PointF>();
 
@@ -515,22 +521,22 @@ namespace image_segm
                 points.Add(circle.Center);
             }
 
-            PointF[] listPoints = sortPoints(points);
+            PointF[] listPoints = SortPoints(points);
 
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
             resPicBox.Image = (Image+img).ToBitmap();
-            PointF[] BezierList = getBezierCurve(listPoints);
+            PointF[] bezierList = GetBezierCurve(listPoints);
             Graphics g = Graphics.FromImage(resPicBox.Image);
             Pen p = new Pen(Color.Red);
             for (int i = 0; i < n - 1; i++) {
-                g.DrawLine(p, BezierList[i], BezierList[i+1]);
+                g.DrawLine(p, bezierList[i], bezierList[i+1]);
             }
 
 
-            System.Console.WriteLine(BezierList[0].X + "   " + BezierList[0].Y);
-            System.Console.WriteLine(BezierList[1].X + "   " + BezierList[1].Y);
+            System.Console.WriteLine(bezierList[0].X + "   " + bezierList[0].Y);
+            System.Console.WriteLine(bezierList[1].X + "   " + bezierList[1].Y);
         }
 
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -576,17 +582,17 @@ namespace image_segm
 
         private void processSimpleToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            process((Bitmap)srcPicBox.Image, 0);
+            Process((Bitmap)srcPicBox.Image, 0);
         }
 
         private void processMediumToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            process((Bitmap)srcPicBox.Image, 1);
+            Process((Bitmap)srcPicBox.Image, 1);
         }
 
         private void processManiacToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            process((Bitmap)srcPicBox.Image, 2);
+            Process((Bitmap)srcPicBox.Image, 2);
         }
 
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
@@ -619,8 +625,8 @@ namespace image_segm
             }
 
             Image<Gray, byte> grayimage = new Image<Gray, byte>(bm);
-            double cannyThreshold = getOtsuThreshold(grayimage);
-            cannyThreshold = getKMeansThreshold(grayimage);
+            double cannyThreshold = GetOtsuThreshold(grayimage);
+            cannyThreshold = GetKMeansThreshold(grayimage);
             Bitmap res = new Bitmap(bm.Width, bm.Height);
             label2.Text = cannyThreshold.ToString();
             for (int i = 0; i<grayimage.Height; i++)
@@ -665,7 +671,7 @@ namespace image_segm
         }
 
         //Bezier
-        int factor(int n) {
+        int Factor(int n) {
             int fact = 1;
             for (int j = 2; j <= n; j++)
             {
@@ -674,7 +680,7 @@ namespace image_segm
             return fact;
         }
 
-        float getBezierBasis(int i, int n, float t)
+        float GetBezierBasis(int i, int n, float t)
         {
             // Факториал
             int fact = 1;
@@ -683,12 +689,12 @@ namespace image_segm
             }
 
             // считаем i-й элемент полинома Берштейна
-            return (factor(n) / (factor(i) * factor(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
+            return (Factor(n) / (Factor(i) * Factor(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
         }
 
         // arr - массив опорных точек. Точка - двухэлементный массив, (x = arr[0], y = arr[1])
         // step - шаг при расчете кривой (0 < step < 1), по умолчанию 0.01
-        private PointF[] getBezierCurve(PointF[] arr, float step = 0f)
+        private PointF[] GetBezierCurve(PointF[] arr, float step = 0f)
         {
             PointF[] res = new PointF[n + 1];
             int posCount = 0;
@@ -702,7 +708,7 @@ namespace image_segm
 
                 for (int i = 0; i < arr.Length; i++)
                 {
-                    float b = getBezierBasis(i, arr.Length - 1, t);
+                    float b = GetBezierBasis(i, arr.Length - 1, t);
 
                     res[posCount].X += arr[i].X * b;
                     res[posCount].Y += arr[i].Y * b;
