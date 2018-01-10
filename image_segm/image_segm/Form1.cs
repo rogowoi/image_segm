@@ -9,6 +9,10 @@ using System.Drawing.Imaging;
 using System.Linq;
 using System.Windows.Forms;
 using Emgu.CV.Stitching;
+using AForge;
+using Point = System.Drawing.Point;
+using AForge.Imaging;
+using AForge.Math.Geometry;
 
 namespace image_segm
 {
@@ -251,8 +255,121 @@ namespace image_segm
                 }
             }
         }
-        
-        
+
+        private void altProcess(Bitmap bm, int level)
+        {
+            var img = new Image<Bgr, byte>(bm);
+            if (level == 1)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+                var resImage = new Image<Bgr, byte>(img.Bitmap);
+                CvInvoke.BilateralFilter(resImage, img, 30, 75, 75);
+            }
+            else if (level == 2)
+            {
+                CvInvoke.MedianBlur(img, img, 5);
+                var resImage = new Image<Bgr, byte>(img.Bitmap);
+                CvInvoke.BilateralFilter(resImage, img, 25, 75, 75);
+                CvInvoke.Blur(img, img, new Size(5, 5), new Point(0, 0));
+            }
+            else if (level == 3)
+            {
+                var resImage = new Image<Bgr, byte>(img.Bitmap);
+                CvInvoke.FastNlMeansDenoising(resImage, img);
+            }
+            
+            var grayimage = new Image<Gray, byte>(bm);
+            CvInvoke.CvtColor(img, grayimage, ColorConversion.Bgr2Gray);
+            
+            BlackBG(grayimage);
+            
+            Console.WriteLine("Filtering done");
+
+            var cannyThreshold = GetKMeansThreshold(grayimage);
+            
+            label2.Text = cannyThreshold.ToString();
+            
+            Thresholding(grayimage, cannyThreshold);
+
+            Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
+
+            //Convert the image to grayscale and filter out the noise
+            var uimage = new UMat();
+            CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
+                
+            // create instance of blob counter
+            BlobCounter blobCounter = new BlobCounter( );
+            // process input image
+            blobCounter.ProcessImage(grayimage.ToBitmap());
+            // get information about detected objects
+            Blob[] blobs = blobCounter.GetObjectsInformation( );
+            Bitmap newBM = new Bitmap(img.Bitmap);
+            Graphics g = Graphics.FromImage(newBM);
+            Pen redPen = new Pen(Color.Red, 2);
+            // check each object and draw circle around objects, which
+            // are recognized as circles
+            SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
+
+            Pen yellowPen = new Pen(Color.Yellow, 2);
+            Pen greenPen = new Pen(Color.Green, 2);
+            Pen bluePen = new Pen(Color.Blue, 2);
+
+            for (int i = 0, n = blobs.Length; i < n; i++)
+            {
+                List<IntPoint> edgePoints =
+                    blobCounter.GetBlobsEdgePoints(blobs[i]);
+
+                AForge.Point center;
+                float radius;
+
+                if (shapeChecker.IsCircle(edgePoints, out center, out radius))
+                {
+                    g.DrawEllipse(yellowPen,
+                        (float)(center.X - radius), (float)(center.Y - radius),
+                        (float)(radius * 2), (float)(radius * 2));
+                }
+                else
+                {
+                    List<IntPoint> corners;
+                    if (edgePoints.Count > 1)
+                    {
+                        if (shapeChecker.IsQuadrilateral(edgePoints, out corners))
+                        {
+                            if (shapeChecker.CheckPolygonSubType(corners) ==
+                                PolygonSubType.Square)
+                            {
+                                g.DrawPolygon(greenPen, ToPointsArray(corners));
+                            }
+                            else if(shapeChecker.CheckPolygonSubType(corners) ==
+                                PolygonSubType.Square)
+                            {
+                                g.DrawPolygon(bluePen, ToPointsArray(corners));
+                            }
+                        }
+                        else
+                        {
+                            corners = PointsCloud.FindQuadrilateralCorners(edgePoints);
+                            g.DrawPolygon(redPen, ToPointsArray(corners));
+                        }
+                    }
+                    
+                }
+            }
+
+            redPen.Dispose();
+            greenPen.Dispose();
+            bluePen.Dispose();
+            yellowPen.Dispose();
+            g.Dispose();
+            resPicBox.Image = newBM;
+            
+
+        }
+        private System.Drawing.Point[] ToPointsArray(List<IntPoint> points)
+        {
+            return points.Select(p => new System.Drawing.Point(p.X, p.Y)).ToArray();
+        }
+
         private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0, int maxRadius = 0)
         {
             
@@ -284,7 +401,7 @@ namespace image_segm
             
             BlackBG(grayimage);
             
-            System.Console.WriteLine("Filtering done");
+            Console.WriteLine("Filtering done");
 
             cannyThreshold = GetKMeansThreshold(grayimage);
             
@@ -292,7 +409,7 @@ namespace image_segm
             
             Thresholding(grayimage, cannyThreshold);
 
-            System.Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
+            Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
 
             //Convert the image to grayscale and filter out the noise
             var uimage = new UMat();
@@ -302,7 +419,7 @@ namespace image_segm
 
             var circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, maxRadius);
             
-            System.Console.WriteLine("Circles found " + circles.Length.ToString());
+            Console.WriteLine("Circles found " + circles.Length.ToString());
 
             var cannyEdges = new UMat();
             switch (level)
@@ -324,7 +441,7 @@ namespace image_segm
                1, //threshold
                5, //min Line length
                5); //gap between lines
-            System.Console.WriteLine("Lines detected");
+            Console.WriteLine("Lines detected");
 
             var triangleList = new List<Triangle2DF>();
             var boxList = new List<RotatedRect>();
@@ -446,7 +563,7 @@ namespace image_segm
 
         private void processSimpleToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Process((Bitmap)srcPicBox.Image, 0);
+            altProcess((Bitmap)srcPicBox.Image, 0);
         }
 
         private void processMediumToolStripMenuItem_Click(object sender, EventArgs e)
@@ -562,18 +679,14 @@ namespace image_segm
 
         private static float GetBezierBasis(int i, int n, float t)
         {
-            // Факториал
             var fact = 1;
             for (var j = 2; j <= n; j++) {
                 fact *= j;
             }
 
-            // считаем i-й элемент полинома Берштейна
             return (Factor(n) / (Factor(i) * Factor(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
         }
 
-        // arr - массив опорных точек. Точка - двухэлементный массив, (x = arr[0], y = arr[1])
-        // step - шаг при расчете кривой (0 < step < 1), по умолчанию 0.01
         private static PointF[] GetBezierCurve(IReadOnlyList<PointF> arr, float step = 0f)
         {
             var res = new PointF[N + 1];
