@@ -408,7 +408,7 @@ namespace image_segm
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
             resPicBox.Image = (Image + img).ToBitmap();
-            var bezierList = GetBezierCurve(listPoints);
+            var bezierList = GetBezierCurve1(listPoints);
             var gr = Graphics.FromImage(resPicBox.Image);
             var p = new Pen(Color.Red);
             for (var i = 0; i < N - 1; i++)
@@ -569,7 +569,7 @@ namespace image_segm
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
             resPicBox.Image = (Image+img).ToBitmap();
-            var bezierList = GetBezierCurve(listPoints);
+            var bezierList = GetBezierCurve1(listPoints);
             var g = Graphics.FromImage(resPicBox.Image);
             var p = new Pen(Color.Red);
             for (var i = 0; i < N - 1; i++) {
@@ -744,7 +744,7 @@ namespace image_segm
             return (Factor(n) / (Factor(i) * Factor(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
         }
 
-        private static PointF[] GetBezierCurve(IReadOnlyList<PointF> arr, float step = 0f)
+        private static PointF[] GetBezierCurve1(IReadOnlyList<PointF> arr, float step = 0f)
         {
             var res = new PointF[N + 1];
             var posCount = 0;
@@ -759,6 +759,98 @@ namespace image_segm
                     res[posCount].X += arr[i].X * b;
                     res[posCount].Y += arr[i].Y * b;
                 }
+                posCount++;
+            }
+
+
+            return res;
+        }
+        
+
+        private int n = 100;
+        private PointF[] getBezierCurve(PointF[] arr, float step = 0f)
+        {
+            PointF[] res = new PointF[n + 1];
+            int posCount = 0;
+            step = (float)1 / n;
+
+            float d = 0;
+            for (int i = 0; i < arr.Length - 1; i++) {
+                    d += (float)GetDistance(arr[i], arr[i+1]); ;
+            }
+            float t1 = (float)GetDistance(arr[0], arr[1])/d + (float)GetDistance(arr[2], arr[1]) / d + (float)GetDistance(arr[2], arr[3]) / d;
+            float t3 = (float)GetDistance(arr[2], arr[1])/d;
+            float t2 = 1 - (float)GetDistance(arr[arr.Length - 2], arr[arr.Length - 1]) / d - (float)GetDistance(arr[arr.Length - 2], arr[arr.Length - 3]) / d;
+
+            float a1 = 3 * (1 - t1) * (1 - t1) * t1;
+            float a2 = 3 * (1 - t2) * (1 - t2) * t2;
+            float a3 = 3 * (1 - t3) * (1 - t3) * t3;
+
+            float b1 = 3 * (1 - t1) * t1 * t1;
+            float b2 = 3 * (1 - t2) * t2 * t2;
+            float b3 = 3 * (1 - t3) * t3 * t3;
+
+
+            float x1 = (float)(((arr[3].X - Math.Pow(1 - t1, 3) * arr[0].X - Math.Pow(t1, 3) * arr[arr.Length - 1].X) * b2
+                - (arr[arr.Length - 3].X - Math.Pow(1 - t2, 3) * arr[0].X - Math.Pow(t2, 3) * arr[arr.Length - 1].X) * b1) / (a1 * b2 - a2 * b1));
+            float y1 = (float)(((arr[3].Y - Math.Pow(1 - t1, 3) * arr[0].Y - Math.Pow(t1, 3) * arr[arr.Length - 1].Y) * b2
+                - (arr[arr.Length - 3].Y - Math.Pow(1 - t2, 3) * arr[0].Y - Math.Pow(t2, 3) * arr[arr.Length - 1].Y) * b1) / (a1 * b2 - a2 * b1));
+
+
+            float x2 = (float)(((arr[3].X - Math.Pow(1 - t1, 3) * arr[0].X - Math.Pow(t1, 3) * arr[arr.Length - 1].X) * a2
+                - (arr[arr.Length - 3].X - Math.Pow(1 - t2, 3) * arr[0].X - Math.Pow(t2, 3) * arr[arr.Length - 1].X) * a1) / (b1 * a2 - b2 * a1));
+
+            float y2 = (float)(((arr[3].Y - Math.Pow(1 - t1, 3) * arr[0].Y - Math.Pow(t1, 3) * arr[arr.Length - 1].Y) * a2
+                - (arr[arr.Length - 3].Y - Math.Pow(1 - t2, 3) * arr[0].Y - Math.Pow(t2, 3) * arr[arr.Length - 1].Y) * a1) / (b1 * a2 - b2 * a1));
+
+
+            float x3 = (float)(((arr[1].X - Math.Pow(1 - t3, 3) * arr[0].X - Math.Pow(t3, 3) * arr[arr.Length - 1].X) * a2
+                - (arr[arr.Length - 3].X - Math.Pow(1 - t2, 3) * arr[0].X - Math.Pow(t2, 3) * arr[arr.Length - 1].X) * a3) / (b3 * a2 - b2 * a3));
+
+            float y3 = (float)(((arr[1].Y - Math.Pow(1 - t3, 3) * arr[0].Y - Math.Pow(t3, 3) * arr[arr.Length - 1].Y) * a2
+                - (arr[arr.Length - 3].Y - Math.Pow(1 - t2, 3) * arr[0].Y - Math.Pow(t2, 3) * arr[arr.Length - 1].Y) * a3) / (b3 * a2 - b2 * a3));
+
+
+
+            /*float x1 = (float)(((arr[1].X - Math.Pow(1 - t1, 3) * arr[0].X - Math.Pow(t1, 3) * arr[arr.Length - 1].X)*3*(1-t2)*t2*t2 
+                - (arr[1].X - Math.Pow(1 - t2, 3) * arr[0].X - Math.Pow(t2, 3) * arr[arr.Length - 1].X) * 3 * (1 - t1) * t1 * t1)/(9*(1-t1)*(1-t1)*t1*(1-t2)*t2*t2 - 9*(1-t2)*(1-t2)*t2*(1-t1)*t1*t1));
+            float y1 = (float)(((arr[1].Y - Math.Pow(1 - t1, 3) * arr[0].Y - Math.Pow(t1, 3) * arr[arr.Length - 1].Y) * (1 - t2) * t2 * t2*3
+                - (arr[1].Y - Math.Pow(1 - t2, 3) * arr[0].Y - Math.Pow(t2, 3) * arr[arr.Length - 1].Y) * 3*(1 - t1) * t1 * t1) / (9*(1 - t1) * (1 - t1) * t1 * (1 - t2) * t2 * t2 - 9*(1 - t2) * (1 - t2) * t2 * (1 - t1) * t1 * t1));
+
+
+            float x2 = (float)(((arr[1].X - Math.Pow(1 - t1, 3) * arr[0].X - Math.Pow(t1, 3) * arr[arr.Length - 1].X) * (1 - t2) * (1-t2) * t2*3
+                - (arr[1].X - Math.Pow(1 - t2, 3) * arr[0].X - Math.Pow(t2, 3) * arr[arr.Length - 1].X) * 3*(1 - t1) * (1-t1) * t1) / (-9*(1 - t1) * (1 - t1) * t1 * (1 - t2) * t2 * t2 + 9*(1 - t2) * (1 - t2) * t2 * (1 - t1) * t1 * t1));
+
+            float y2 = (float)(((arr[1].Y - Math.Pow(1 - t1, 3) * arr[0].Y - Math.Pow(t1, 3) * arr[arr.Length - 1].Y) * (1 - t2) * (1-t2) * t2*3
+                - (arr[1].Y - Math.Pow(1 - t2, 3) * arr[0].Y - Math.Pow(t2, 3) * arr[arr.Length - 1].Y) * 3*(1 - t1) * (1-t1) * t1) / (-9*(1 - t1) * (1 - t1) * t1 * (1 - t2) * t2 * t2 + 9*(1 - t2) * (1 - t2) * t2 * (1 - t1) * t1 * t1));
+                */
+            System.Console.WriteLine("p1: " + x1 + ' ' + y1);
+            System.Console.WriteLine("p2: " + x2 + ' ' + y2);
+            System.Console.WriteLine("p3: " + x3 + ' ' + y3);
+
+            PointF p1 = new PointF(x1, y1);
+            PointF p2 = new PointF(x2, y2);
+            PointF p3 = new PointF(x3, y3);
+
+            PointF[] points = new PointF[5];
+
+            points[0] = arr[0];
+            points[1] = p1;
+            points[2] = p3;
+            points[3] = p2;
+            points[4] = arr[arr.Length - 1];
+
+            for (float t = 0f; t < 1; t += step)
+            {
+
+                for (int i = 0; i < points.Length; i++)
+                {
+                    float b = GetBezierBasis(i, points.Length - 1, t);
+
+                    res[posCount].X += points[i].X * b;
+                    res[posCount].Y += points[i].Y * b;
+                }
+                //System.Console.WriteLine("t = " + t);
                 posCount++;
             }
 
