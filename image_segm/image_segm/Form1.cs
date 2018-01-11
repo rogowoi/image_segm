@@ -47,7 +47,7 @@ namespace image_segm
         bool loaded = false;
         bool processed = false;
 
-        private static void FilterSame(List<RotatedRect> boxList, IList<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff = 8000, double threshold = 10)
+        private static void FilterSame(List<RotatedRect> boxList, IList<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff =15000, double threshold = 10)
         {
             if (boxList == null) throw new ArgumentNullException(nameof(boxList));
             if (triangleList == null) throw new ArgumentNullException(nameof(triangleList));
@@ -293,23 +293,26 @@ namespace image_segm
 
             Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
 
-            //Convert the image to grayscale and filter out the noise
             var uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
                 
-            // create instance of blob counter
             BlobCounter blobCounter = new BlobCounter( );
-            // process input image
+            
             blobCounter.ProcessImage(grayimage.ToBitmap());
-            // get information about detected objects
+
             Blob[] blobs = blobCounter.GetObjectsInformation( );
+            
+            SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
+
+            
+            var triangleList = new List<Triangle2DF>();
+            var boxList = new List<RotatedRect>();
+            var circleList = new List<CircleF>();
             Bitmap newBM = new Bitmap(img.Bitmap);
             Graphics g = Graphics.FromImage(newBM);
             Pen redPen = new Pen(Color.Red, 2);
-            // check each object and draw circle around objects, which
-            // are recognized as circles
-            SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
-
+            
+            
             Pen yellowPen = new Pen(Color.Yellow, 2);
             Pen greenPen = new Pen(Color.Green, 2);
             Pen bluePen = new Pen(Color.Blue, 2);
@@ -324,9 +327,10 @@ namespace image_segm
 
                 if (shapeChecker.IsCircle(edgePoints, out center, out radius))
                 {
-                    g.DrawEllipse(yellowPen,
-                        (float)(center.X - radius), (float)(center.Y - radius),
-                        (float)(radius * 2), (float)(radius * 2));
+                    //g.DrawEllipse(bluePen,
+                    //    (float)(center.X - radius), (float)(center.Y - radius),
+                    //    (float)(radius * 2), (float)(radius * 2));
+                    circleList.Add(new CircleF(new PointF(center.X, center.Y), radius));
                 }
                 else
                 {
@@ -335,34 +339,87 @@ namespace image_segm
                     {
                         if (shapeChecker.IsQuadrilateral(edgePoints, out corners))
                         {
+                            System.Console.WriteLine(corners.Count);
                             if (shapeChecker.CheckPolygonSubType(corners) ==
-                                PolygonSubType.Square)
+                                PolygonSubType.Square || shapeChecker.CheckPolygonSubType(corners) ==
+                                PolygonSubType.Rectangle)
                             {
-                                g.DrawPolygon(greenPen, ToPointsArray(corners));
+                                IntPoint minXY, maxXY;
+                                
+                                PointsCloud.GetBoundingRectangle(corners, out minXY, out maxXY);
+                                AForge.Point c = PointsCloud.GetCenterOfGravity(corners);
+                                //g.DrawPolygon(greenPen, ToPointsArray(corners));
+                                boxList.Add(new RotatedRect(new PointF(c.X, c.Y), new SizeF(maxXY.X - minXY.X, maxXY.Y - minXY.Y),0));
                             }
-                            else if(shapeChecker.CheckPolygonSubType(corners) ==
-                                PolygonSubType.Square)
-                            {
-                                g.DrawPolygon(bluePen, ToPointsArray(corners));
-                            }
+                            
                         }
                         else
                         {
                             corners = PointsCloud.FindQuadrilateralCorners(edgePoints);
-                            g.DrawPolygon(redPen, ToPointsArray(corners));
+                            if (corners.Count == 3)
+                            {
+                                Triangle2DF tri = new Triangle2DF(new PointF(corners[0].X, corners[0].Y), new PointF(corners[1].X, corners[1].Y), new PointF(corners[2].X, corners[2].Y));
+                                triangleList.Add(tri);
+                                //g.DrawPolygon(yellowPen, ToPointsArray(corners));
+                            }
+                            //g.DrawPolygon(redPen, ToPointsArray(corners));
                         }
                     }
                     
                 }
             }
+            Console.WriteLine("boxes"+boxList.Count);
+            Console.WriteLine("triangles"+triangleList.Count);
+            Console.WriteLine("circles"+circleList.Count);
 
             redPen.Dispose();
             greenPen.Dispose();
             bluePen.Dispose();
             yellowPen.Dispose();
-            g.Dispose();
+            //g.Dispose();
             resPicBox.Image = newBM;
-            
+            CircleF[] circles = circleList.ToArray();
+
+            FilterSame(boxList, triangleList, circles, img.Width * img.Height);
+
+            var points = new List<PointF>();
+
+            var Image = img.CopyBlank();
+            foreach (var triangle in triangleList)
+            {
+                Image.Draw(triangle, new Bgr(Color.Red), 3);
+                points.Add(triangle.Centeroid);
+            }
+
+            foreach (var box in boxList)
+            {
+                Image.Draw(box, new Bgr(Color.Blue), 3);
+                points.Add(box.Center);
+            }
+
+            foreach (var circle in circles)
+            {
+                Image.Draw(circle, new Bgr(Color.DarkCyan), 3);
+                points.Add(circle.Center);
+            }
+
+            var listPoints = SortPoints(points);
+
+
+            System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
+            resPicBox.Image = (Image + img).ToBitmap();
+            var bezierList = GetBezierCurve(listPoints);
+            var gr = Graphics.FromImage(resPicBox.Image);
+            var p = new Pen(Color.Red);
+            for (var i = 0; i < N - 1; i++)
+            {
+                gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+            }
+
+
+            System.Console.WriteLine(bezierList[0].X + "   " + bezierList[0].Y);
+            System.Console.WriteLine(bezierList[1].X + "   " + bezierList[1].Y);
+
 
         }
         private System.Drawing.Point[] ToPointsArray(List<IntPoint> points)
