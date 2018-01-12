@@ -404,22 +404,26 @@ namespace image_segm
             }
 
             var listPoints = SortPoints(points);
-
+            
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
             resPicBox.Image = (Image + img).ToBitmap();
-            var bezierList = GetBezierCurve1(listPoints);
+            var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
             var gr = Graphics.FromImage(resPicBox.Image);
             var p = new Pen(Color.Red);
-            for (var i = 0; i < N - 1; i++)
+
+            foreach (BeizerCurveSegment seg in bezSegList)
             {
-                gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+                
+                var bezierList = GetBez(new PointF[] {seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint });
+                for(var i = 0; i < bezierList.Length - 1; i++)
+                {
+                    gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+                }
+
             }
-
-
-            System.Console.WriteLine(bezierList[0].X + "   " + bezierList[0].Y);
-            System.Console.WriteLine(bezierList[1].X + "   " + bezierList[1].Y);
-
+            //var bezierList = GetBezierCurve1(listPoints);
+            
 
         }
         private System.Drawing.Point[] ToPointsArray(List<IntPoint> points)
@@ -569,16 +573,21 @@ namespace image_segm
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
             resPicBox.Image = (Image+img).ToBitmap();
-            var bezierList = GetBezierCurve1(listPoints);
-            var g = Graphics.FromImage(resPicBox.Image);
+            var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
+            var gr = Graphics.FromImage(resPicBox.Image);
             var p = new Pen(Color.Red);
-            for (var i = 0; i < N - 1; i++) {
-                g.DrawLine(p, bezierList[i], bezierList[i+1]);
+
+            foreach (BeizerCurveSegment seg in bezSegList)
+            {
+
+                var bezierList = GetBez(new PointF[] { seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint });
+                for (var i = 0; i < bezierList.Length - 1; i++)
+                {
+                    gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+                }
+
             }
-
-
-            System.Console.WriteLine(bezierList[0].X + "   " + bezierList[0].Y);
-            System.Console.WriteLine(bezierList[1].X + "   " + bezierList[1].Y);
+            
         }
 
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -857,6 +866,145 @@ namespace image_segm
 
             return res;
         }
+
+
+        public class BeizerCurveSegment
+        {
+            public System.Drawing.PointF StartPoint { get; set; }
+            public System.Drawing.PointF EndPoint { get; set; }
+            public System.Drawing.PointF FirstControlPoint { get; set; }
+            public System.Drawing.PointF SecondControlPoint { get; set; }
+        }
+        
+         List<BeizerCurveSegment> InterpolatePointWithBeizerCurves(List<PointF> points)
+                {
+            if (points.Count < 3)
+                return null;
+            var toRet = new List<BeizerCurveSegment>();
+
+
+
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+
+                float x1 = points[i].X;
+                float y1 = points[i].Y;
+
+                float x2 = points[i + 1].X;
+                float y2 = points[i + 1].Y;
+
+                float x0;
+                float y0;
+
+                if (i == 0)
+                {
+
+                    {
+                        var previousPoint = points[i];
+                        x0 = previousPoint.X;
+                        y0 = previousPoint.Y;
+                    }
+                }
+                else
+                {
+                    x0 = points[i - 1].X;
+                    y0 = points[i - 1].Y;
+                }
+
+                float x3, y3;
+
+                if (i == points.Count - 2)
+                {
+                    {
+                        var nextPoint = points[i + 1];
+                        x3 = nextPoint.X;
+                        y3 = nextPoint.Y;
+                    }
+                }
+                else
+                {
+                    x3 = points[i + 2].X;
+                    y3 = points[i + 2].Y;
+                }
+
+                float xc1 = (x0 + x1) / (float)2.0;
+                float yc1 = (y0 + y1) / (float)2.0;
+                float xc2 = (x1 + x2) / (float)2.0;
+                float yc2 = (y1 + y2) / (float)2.0;
+                float xc3 = (x2 + x3) / (float)2.0;
+                float yc3 = (y2 + y3) / (float)2.0;
+
+                float len1 = (float)Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+                float len2 = (float)Math.Sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+                float len3 = (float)Math.Sqrt((x3 - x2) * (x3 - x2) + (y3 - y2) * (y3 - y2));
+
+                float k1 = len1 / (len1 + len2);
+                float k2 = len2 / (len2 + len3);
+
+                float xm1 = xc1 + (xc2 - xc1) * k1;
+                float ym1 = yc1 + (yc2 - yc1) * k1;
+
+                float xm2 = xc2 + (xc3 - xc2) * k2;
+                float ym2 = yc2 + (yc3 - yc2) * k2;
+
+                const float smoothValue = (float)0.8;
+
+                float ctrl1_x = xm1 + (xc2 - xm1) * smoothValue + x1 - xm1;
+                float ctrl1_y = ym1 + (yc2 - ym1) * smoothValue + y1 - ym1;
+
+                float ctrl2_x = xm2 + (xc2 - xm2) * smoothValue + x2 - xm2;
+                float ctrl2_y = ym2 + (yc2 - ym2) * smoothValue + y2 - ym2;
+                toRet.Add(new BeizerCurveSegment
+                {
+                    StartPoint = new PointF(x1, y1),
+                    EndPoint = new PointF(x2, y2),
+                    FirstControlPoint = i == 0 ? new PointF(x1, y1) : new PointF(ctrl1_x, ctrl1_y),
+                    SecondControlPoint = i == points.Count - 2 ? new PointF(x2, y2) : new PointF(ctrl2_x, ctrl2_y)
+                });
+            }
+
+            return toRet;
+        }
+
+        
+
+        int Fuctorial(int n)
+        {
+            int res = 1;
+            for (int i = 1; i <= n; i++)
+                res *= i;
+            return res;
+        }
+        private float Ber(int i, int n, float t)
+        {
+            return (Fuctorial(n) / (Fuctorial(i) * Fuctorial(n - i))) * (float)Math.Pow(t, i) * (float)Math.Pow(1 - t, n - i);
+        }
+        
+        
+
+        private PointF[] GetBez(PointF[] arr, float step = 0f)
+        {
+            int N = 100;
+            var res = new PointF[N + 1];
+            var posCount = 0;
+
+            step = (float)1 / N;
+            for (var t = 0f; t < 1; t += step)
+            {
+                for (var i = 0; i < arr.Count(); i++)
+                {
+                    var b = Ber(i, arr.Count() - 1, t);
+
+                    res[posCount].X += arr[i].X * b;
+                    res[posCount].Y += arr[i].Y * b;
+                }
+                posCount++;
+            }
+
+
+            return res;
+        }
+
 
         private void filterToolStripMenuItem_Click(object sender, EventArgs e)
         {
