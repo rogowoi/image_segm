@@ -47,10 +47,12 @@ namespace image_segm
         bool loaded = false;
         bool processed = false;
 
-        private static void FilterSame(List<RotatedRect> boxList, IList<Triangle2DF> triangleList, CircleF[] circles, int imageSize, int areaDiff =15000, double threshold = 10)
+        private static void FilterSame(List<RotatedRect> boxList, IList<Triangle2DF> triangleList, List<CircleF> circles, int imageSize, int areaDiff =15000, double threshold = 10)
         {
             if (boxList == null) throw new ArgumentNullException(nameof(boxList));
             if (triangleList == null) throw new ArgumentNullException(nameof(triangleList));
+            if (circles == null) throw new ArgumentNullException(nameof(circles));
+
             var deleted = (from box in boxList from circle in circles where Math.Abs(box.Center.X - circle.Center.X) < threshold && Math.Abs(box.Center.Y - circle.Center.Y) < threshold select box).ToList();
 
             foreach (var box in deleted)
@@ -61,6 +63,37 @@ namespace image_segm
                 }
             }
             deleted.Clear();
+            //List<CircleF> circleList = circles.ToList();
+            Console.WriteLine("Circles");
+            Console.WriteLine(circles.Count);
+
+            var deletedC = new List<CircleF>();
+
+            for (var i = 0; i < circles.Count; i++)
+            {
+                var c1 = circles[i];
+                for (var j = i + 1; j < circles.Count; j++)
+                {
+                    var c2 = circles[j];
+                    if (Math.Abs(c1.Center.X - c2.Center.X) < Math.Max(c1.Radius, c2.Radius) && Math.Abs(c1.Center.Y - c2.Center.Y) < Math.Max(c1.Radius, c2.Radius))
+                    {
+                        deletedC.Add(c1);
+                    }
+                }
+            }
+
+            foreach (var circle in deletedC)
+            {
+                if (circles.Contains(circle))
+                {
+                    circles.Remove(circle);
+                }
+            }
+
+            deletedC.Clear();
+            //circles = circleList.ToArray();
+            Console.WriteLine(circles.Count);
+
             for (var i = 0; i < boxList.Count; i++)
             {
                 var box1 = boxList[i];
@@ -122,27 +155,46 @@ namespace image_segm
                 }
             }
             deleted.Clear();
+            
         }
 
-        private static PointF[] SortPoints(List<PointF> points)
+        private static PointF[] SortPoints(List<PointF> points, Image<Bgr, byte> image)
         {
             points.Sort((a, b) => a.X.CompareTo(b.X));
             var listPoints = new PointF[points.Count];
-            listPoints[0] = points[0];
-            var posCount = 0;
-            double minDist = 1000000;
             var visited = new bool[points.Count];
             for (var i = 0; i < visited.Length; i++)
             {
                 visited[i] = false;
             }
-            visited[0] = true;
+            bool yellow = false;
+            /*for (int i = 0; i<points.Count; i++)
+            {
+                float x = points[i].X;
+                float y = points[i].Y;
+                if (image[(int)y, (int)x].Red == 255 && image[(int)y, (int)x].Green == 255)
+                {
+                    listPoints[0] = points[i];
+                    yellow = true;
+                    visited[i] = true;
+                }
+            }*/
+            if (!yellow)
+            {
+                listPoints[0] = points[0];
+                visited[0] = true;
+
+            }
+
+            var posCount = 0;
+
 
             for (var i = 0; i < points.Count - 1; i++)
             {
+                double minDist = 1000000;
                 posCount++;
                 var nxtPointIndex = i + 1;
-                for (var j = i + 1; j < points.Count; j++)
+                for (var j = 0; j < points.Count; j++)
                 {
                     if (!(GetDistance(points[i], points[j]) < minDist) || visited[j]) continue;
                     nxtPointIndex = j;
@@ -261,9 +313,10 @@ namespace image_segm
             var img = new Image<Bgr, byte>(bm);
             if (level == 1)
             {
-                CvInvoke.MedianBlur(img, img, 5);
                 var resImage = new Image<Bgr, byte>(img.Bitmap);
                 CvInvoke.BilateralFilter(resImage, img, 30, 75, 75);
+                CvInvoke.MedianBlur(img, img, 5);
+                resImage = img;
             }
             else if (level == 2)
             {
@@ -368,9 +421,9 @@ namespace image_segm
                     
                 }
             }
-            Console.WriteLine("boxes"+boxList.Count);
-            Console.WriteLine("triangles"+triangleList.Count);
-            Console.WriteLine("circles"+circleList.Count);
+            Console.WriteLine("boxes "+boxList.Count);
+            Console.WriteLine("triangles "+triangleList.Count);
+            Console.WriteLine("circles "+circleList.Count);
 
             redPen.Dispose();
             greenPen.Dispose();
@@ -379,9 +432,9 @@ namespace image_segm
             //g.Dispose();
             resPicBox.Image = newBM;
             CircleF[] circles = circleList.ToArray();
-
-            FilterSame(boxList, triangleList, circles, img.Width * img.Height);
-
+            var cList = circles.ToList();
+            FilterSame(boxList, triangleList, cList, img.Width * img.Height);
+            circles = cList.ToArray();
             var points = new List<PointF>();
 
             var Image = img.CopyBlank();
@@ -403,8 +456,12 @@ namespace image_segm
                 points.Add(circle.Center);
             }
 
-            var listPoints = SortPoints(points);
-            
+            var listPoints = SortPoints(points, img);
+
+            for (var i = 0; i < listPoints.Length; i++)
+            {
+                Console.WriteLine(listPoints[i].X.ToString() + " " + listPoints[i].Y.ToString());
+            }
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
             resPicBox.Image = (Image + img).ToBitmap();
@@ -433,15 +490,15 @@ namespace image_segm
 
         private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0, int maxRadius = 0)
         {
-            
             double cannyThreshold = 0;
-            
             var img = new Image<Bgr, byte>(bm);
             if (level == 1)
             {
-                CvInvoke.MedianBlur(img, img, 5);
                 var resImage = new Image<Bgr, byte>(img.Bitmap);
                 CvInvoke.BilateralFilter(resImage, img, 30, 75, 75);
+                CvInvoke.MedianBlur(img, img, 5);
+                resImage = img;
+                
             }
             else if (level == 2)
             {
@@ -483,20 +540,10 @@ namespace image_segm
             Console.WriteLine("Circles found " + circles.Length.ToString());
 
             var cannyEdges = new UMat();
-            switch (level)
-            {
-                case 0:
-                    CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
-                    break;
-                case 1:
-                    CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
-                    break;
-                default:
-                    CvInvoke.Canny(grayimage.ToUMat(), cannyEdges, cannyThreshold, cannyThreshold);
-                    break;
-            }
+            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
             
-            var lines = CvInvoke.HoughLinesP(cannyEdges,
+            
+            var lines = CvInvoke.HoughLinesP(uimage,
                1, //Distance resolution in pixel-related units
                Math.PI / 180.0, //Angle resolution measured in radians.
                1, //threshold
@@ -544,8 +591,21 @@ namespace image_segm
             System.Console.WriteLine("Boxes found " + boxList.Count.ToString());
             System.Console.WriteLine("Triangles found " + triangleList.Count.ToString());
 
-            FilterSame(boxList, triangleList, circles, img.Width * img.Height);
-
+            var cList = circles.ToList();
+            FilterSame(boxList, triangleList, cList, img.Width * img.Height);
+            circles = cList.ToArray();
+            var deleted = new List<RotatedRect>();
+            foreach (var box in boxList)
+            {
+                UMat mask = new UMat(new Size(img.Width+2, img.Height+2), DepthType.Cv8U, 1);
+                Rectangle rect;
+                CvInvoke.FloodFill(uimage, mask, new Point((int)box.Center.X, (int)box.Center.Y), new MCvScalar(255), out rect, new MCvScalar(0), new MCvScalar(1), flags: FloodFillType.FixedRange);
+                if (Math.Abs(rect.Width * rect.Height - box.Size.Height * box.Size.Width) > 100)
+                {
+                    deleted.Add(box);
+                }
+            }
+            
             var points = new List<PointF>();
 
             var Image = img.CopyBlank();
@@ -567,7 +627,7 @@ namespace image_segm
                 points.Add(circle.Center);
             }
 
-            var listPoints = SortPoints(points);
+            var listPoints = SortPoints(points, img);
 
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
