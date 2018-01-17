@@ -7,8 +7,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
+using System.Net.Configuration;
 using System.Windows.Forms;
-using Emgu.CV.Stitching;
 using AForge;
 using Point = System.Drawing.Point;
 using AForge.Imaging;
@@ -314,7 +314,7 @@ namespace image_segm
             if (level == 1)
             {
                 var resImage = new Image<Bgr, byte>(img.Bitmap);
-                CvInvoke.BilateralFilter(resImage, img, 30, 75, 75);
+                CvInvoke.BilateralFilter(resImage, img, 30, 80, 80);
                 CvInvoke.MedianBlur(img, img, 5);
                 resImage = img;
             }
@@ -324,11 +324,6 @@ namespace image_segm
                 var resImage = new Image<Bgr, byte>(img.Bitmap);
                 CvInvoke.BilateralFilter(resImage, img, 25, 75, 75);
                 CvInvoke.Blur(img, img, new Size(5, 5), new Point(0, 0));
-            }
-            else if (level == 3)
-            {
-                var resImage = new Image<Bgr, byte>(img.Bitmap);
-                CvInvoke.FastNlMeansDenoising(resImage, img);
             }
             
             var grayimage = new Image<Gray, byte>(bm);
@@ -343,16 +338,35 @@ namespace image_segm
             label2.Text = cannyThreshold.ToString();
             
             Thresholding(grayimage, cannyThreshold);
+            
+            Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
 
+            //Convert the image to grayscale and filter out the noise
+            
+            var cannyEdges = new UMat();
+            
             Console.WriteLine("Canny threshold using KMEANS found " + cannyThreshold);
 
             var uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
+            
+            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThreshold);
                 
             BlobCounter blobCounter = new BlobCounter( );
-            
-            blobCounter.ProcessImage(grayimage.ToBitmap());
+            if (level == 1)
+            {
+                blobCounter.FilterBlobs = true;
+                blobCounter.MinHeight = 25;
+                blobCounter.MinWidth = 25;
+                blobCounter.ProcessImage(cannyEdges.Bitmap);
 
+            }
+            else
+            {
+                blobCounter.ProcessImage(grayimage.ToBitmap());
+            }            
+            //blobCounter.ProcessImage(grayimage.ToBitmap());
+            
             Blob[] blobs = blobCounter.GetObjectsInformation( );
             
             SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
@@ -465,29 +479,40 @@ namespace image_segm
 
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
             resPicBox.Image = (Image + img).ToBitmap();
-            var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
-            var gr = Graphics.FromImage(resPicBox.Image);
-            var p = new Pen(Color.Red);
-
-            foreach (BeizerCurveSegment seg in bezSegList)
+            if (listPoints.Length > 3)
             {
-                
-                var bezierList = GetBez(new PointF[] {seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint });
-                for(var i = 0; i < bezierList.Length - 1; i++)
-                {
-                    gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
-                }
+                var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
+                var gr = Graphics.FromImage(resPicBox.Image);
+                var p = new Pen(Color.Red);
 
+                foreach (BeizerCurveSegment seg in bezSegList)
+                {
+
+                    var bezierList = GetBez(new PointF[]
+                        {seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint});
+                    for (var i = 0; i < bezierList.Length - 1; i++)
+                    {
+                        gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+                    }
+
+                }
             }
+            else
+            {
+                var gr = Graphics.FromImage(resPicBox.Image);
+                var p = new Pen(Color.Red);
+
+                for (var i = 0; i < listPoints.Length - 1; i++)
+                {
+                    gr.DrawLine(p, listPoints[i], listPoints[i + 1]);
+                }
+            }
+            
             //var bezierList = GetBezierCurve1(listPoints);
             
 
         }
-        private System.Drawing.Point[] ToPointsArray(List<IntPoint> points)
-        {
-            return points.Select(p => new System.Drawing.Point(p.X, p.Y)).ToArray();
-        }
-
+        
         private void Process(Bitmap bm, int level, double circleAccumulatorThreshold = 70.0, int maxRadius = 0)
         {
             double cannyThreshold = 0;
@@ -532,8 +557,8 @@ namespace image_segm
             //Convert the image to grayscale and filter out the noise
             var uimage = new UMat();
             CvInvoke.CvtColor(img, uimage, ColorConversion.Bgr2Gray);
-
-
+            //uimage = grayimage.ToUMat();
+            //resPicBox.Image = grayimage.Bitmap;
 
             var circles = CvInvoke.HoughCircles(uimage, HoughType.Gradient, 2.0, 5.0, cannyThreshold, circleAccumulatorThreshold, 1, maxRadius);
             
@@ -594,17 +619,6 @@ namespace image_segm
             var cList = circles.ToList();
             FilterSame(boxList, triangleList, cList, img.Width * img.Height);
             circles = cList.ToArray();
-            var deleted = new List<RotatedRect>();
-            foreach (var box in boxList)
-            {
-                UMat mask = new UMat(new Size(img.Width+2, img.Height+2), DepthType.Cv8U, 1);
-                Rectangle rect;
-                CvInvoke.FloodFill(uimage, mask, new Point((int)box.Center.X, (int)box.Center.Y), new MCvScalar(255), out rect, new MCvScalar(0), new MCvScalar(1), flags: FloodFillType.FixedRange);
-                if (Math.Abs(rect.Width * rect.Height - box.Size.Height * box.Size.Width) > 100)
-                {
-                    deleted.Add(box);
-                }
-            }
             
             var points = new List<PointF>();
 
@@ -633,20 +647,35 @@ namespace image_segm
             System.Console.WriteLine("Points sorted, num of objects " + listPoints.Length.ToString());
 
             resPicBox.Image = (Image+img).ToBitmap();
-            var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
-            var gr = Graphics.FromImage(resPicBox.Image);
-            var p = new Pen(Color.Red);
-
-            foreach (BeizerCurveSegment seg in bezSegList)
+            if (listPoints.Length > 3)
             {
+                var bezSegList = InterpolatePointWithBeizerCurves(listPoints.ToList<PointF>());
+                var gr = Graphics.FromImage(resPicBox.Image);
+                var p = new Pen(Color.Red);
 
-                var bezierList = GetBez(new PointF[] { seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint });
-                for (var i = 0; i < bezierList.Length - 1; i++)
+                foreach (BeizerCurveSegment seg in bezSegList)
                 {
-                    gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
-                }
 
+                    var bezierList = GetBez(new PointF[]
+                        {seg.StartPoint, seg.FirstControlPoint, seg.SecondControlPoint, seg.EndPoint});
+                    for (var i = 0; i < bezierList.Length - 1; i++)
+                    {
+                        gr.DrawLine(p, bezierList[i], bezierList[i + 1]);
+                    }
+
+                }
             }
+            else
+            {
+                var gr = Graphics.FromImage(resPicBox.Image);
+                var p = new Pen(Color.Red);
+
+                for (var i = 0; i < listPoints.Length - 1; i++)
+                {
+                    gr.DrawLine(p, listPoints[i], listPoints[i + 1]);
+                }
+            }
+            
             
         }
 
@@ -694,12 +723,12 @@ namespace image_segm
 
         private void processMediumToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Process((Bitmap)srcPicBox.Image, 1);
+            altProcess((Bitmap)srcPicBox.Image, 1);
         }
 
         private void processManiacToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Process((Bitmap)srcPicBox.Image, 2);
+            altProcess((Bitmap)srcPicBox.Image, 2);
         }
 
         private void medianFilterToolStripMenuItem_Click(object sender, EventArgs e)
